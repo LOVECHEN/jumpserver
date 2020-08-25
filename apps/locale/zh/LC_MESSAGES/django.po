@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: JumpServer 0.3.3\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2020-09-02 10:54+0800\n"
+"POT-Creation-Date: 2020-08-25 16:18+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: ibuler <ibuler@qq.com>\n"
 "Language-Team: JumpServer team<ibuler@qq.com>\n"
@@ -180,11 +180,11 @@ msgstr "远程应用"
 msgid "Deleted failed, There are related assets"
 msgstr "删除失败，存在关联资产"
 
-#: assets/api/node.py:49
+#: assets/api/node.py:52
 msgid "You can't update the root node name"
 msgstr "不能修改根节点名称"
 
-#: assets/api/node.py:56
+#: assets/api/node.py:59
 msgid "Deletion failed and the node contains children or assets"
 msgstr "删除失败，节点包含子节点或资产"
 
@@ -433,7 +433,7 @@ msgid "Default"
 msgstr "默认"
 
 #: assets/models/cluster.py:36 assets/models/label.py:14
-#: users/models/user.py:661
+#: users/models/user.py:667
 msgid "System"
 msgstr "系统"
 
@@ -555,7 +555,7 @@ msgstr "默认资产组"
 #: tickets/models/ticket.py:30 tickets/models/ticket.py:137
 #: tickets/serializers/request_asset_perm.py:65
 #: tickets/serializers/ticket.py:31 users/forms/group.py:15
-#: users/models/user.py:159 users/models/user.py:649
+#: users/models/user.py:159 users/models/user.py:655
 #: users/serializers/group.py:20
 #: users/templates/users/user_asset_permission.html:38
 #: users/templates/users/user_asset_permission.html:64
@@ -569,7 +569,7 @@ msgstr "默认资产组"
 msgid "User"
 msgstr "用户"
 
-#: assets/models/label.py:19 assets/models/node.py:502 settings/models.py:28
+#: assets/models/label.py:19 assets/models/node.py:515 settings/models.py:28
 msgid "Value"
 msgstr "值"
 
@@ -577,27 +577,31 @@ msgstr "值"
 msgid "Category"
 msgstr "分类"
 
-#: assets/models/node.py:223
+#: assets/models/node.py:233
 msgid "New node"
 msgstr "新节点"
 
-#: assets/models/node.py:384
+#: assets/models/node.py:397
 msgid "ungrouped"
 msgstr "未分组"
 
-#: assets/models/node.py:386 users/templates/users/_granted_assets.html:130
+#: assets/models/node.py:399 users/templates/users/_granted_assets.html:130
 msgid "empty"
 msgstr "空"
 
-#: assets/models/node.py:388
+#: assets/models/node.py:401
 msgid "favorite"
 msgstr "收藏夹"
 
-#: assets/models/node.py:501
+#: assets/models/node.py:514 perms/models/asset_permission.py:179
 msgid "Key"
 msgstr "键"
 
-#: assets/models/node.py:511 assets/serializers/system_user.py:45
+#: assets/models/node.py:518
+msgid "Parent key"
+msgstr "ssh私钥"
+
+#: assets/models/node.py:527 assets/serializers/system_user.py:45
 #: assets/serializers/system_user.py:178 perms/forms/asset_permission.py:92
 #: perms/forms/asset_permission.py:99
 #: users/templates/users/user_asset_permission.html:41
@@ -829,25 +833,25 @@ msgstr "更新节点资产硬件信息: {}"
 msgid "Gather assets users"
 msgstr "收集资产上的用户"
 
-#: assets/tasks/push_system_user.py:176
+#: assets/tasks/push_system_user.py:177
 #: assets/tasks/system_user_connectivity.py:89
 msgid "System user is dynamic: {}"
 msgstr "系统用户是动态的: {}"
 
-#: assets/tasks/push_system_user.py:207
+#: assets/tasks/push_system_user.py:208
 msgid "Start push system user for platform: [{}]"
 msgstr "推送系统用户到平台: [{}]"
 
-#: assets/tasks/push_system_user.py:208
+#: assets/tasks/push_system_user.py:209
 #: assets/tasks/system_user_connectivity.py:81
 msgid "Hosts count: {}"
 msgstr "主机数量: {}"
 
-#: assets/tasks/push_system_user.py:225 assets/tasks/push_system_user.py:241
+#: assets/tasks/push_system_user.py:251 assets/tasks/push_system_user.py:267
 msgid "Push system users to assets: {}"
 msgstr "推送系统用户到入资产: {}"
 
-#: assets/tasks/push_system_user.py:233
+#: assets/tasks/push_system_user.py:259
 msgid "Push system users to asset: {}({}) => {}"
 msgstr "推送系统用户到入资产: {}({}) => {}"
 
@@ -1026,7 +1030,7 @@ msgstr "Agent"
 #: authentication/templates/authentication/_mfa_confirm_modal.html:14
 #: authentication/templates/authentication/login_otp.html:6
 #: users/forms/profile.py:52 users/models/user.py:523
-#: users/serializers/user.py:229 users/templates/users/user_detail.html:77
+#: users/serializers/user.py:232 users/templates/users/user_detail.html:77
 #: users/templates/users/user_profile.html:87
 msgid "MFA"
 msgstr "多因子认证"
@@ -1166,7 +1170,7 @@ msgstr ""
 
 #: authentication/errors.py:48
 msgid ""
-"The account has been locked (please contact admin to release it or try again "
+"The account has been locked (please contact admin to unlock it or try again "
 "after {} minutes)"
 msgstr "账号已被锁定（请联系管理员解锁 或 {}分钟后重试）"
 
@@ -1265,7 +1269,7 @@ msgid "Show"
 msgstr "显示"
 
 #: authentication/templates/authentication/_access_key_modal.html:66
-#: users/models/user.py:421 users/serializers/user.py:226
+#: users/models/user.py:421 users/serializers/user.py:229
 #: users/templates/users/user_profile.html:94
 #: users/templates/users/user_profile.html:163
 #: users/templates/users/user_profile.html:166
@@ -1274,7 +1278,7 @@ msgid "Disable"
 msgstr "禁用"
 
 #: authentication/templates/authentication/_access_key_modal.html:67
-#: users/models/user.py:422 users/serializers/user.py:227
+#: users/models/user.py:422 users/serializers/user.py:230
 #: users/templates/users/user_profile.html:92
 #: users/templates/users/user_profile.html:170
 msgid "Enable"
@@ -1434,6 +1438,14 @@ msgstr "CSV 文件最大为 %d 字节"
 msgid "%s object does not exist."
 msgstr "%s对象不存在"
 
+#: common/exceptions.py:25
+msgid "Someone else is doing this. Please wait for complete"
+msgstr "其他人正在操作，请等待他人完成"
+
+#: common/exceptions.py:30
+msgid "Your request timeout"
+msgstr "您的请求超时了"
+
 #: common/fields/form.py:33
 msgid "Not a valid json"
 msgstr "不是合法json"
@@ -1466,7 +1478,7 @@ msgstr ""
 msgid "Marshal data to text field"
 msgstr ""
 
-#: common/fields/model.py:165
+#: common/fields/model.py:157
 msgid "Encrypt field using Secret Key"
 msgstr ""
 
@@ -1722,7 +1734,8 @@ msgstr "提示：RDP 协议不支持单独控制上传或下载文件"
 #: perms/forms/asset_permission.py:86 perms/forms/database_app_permission.py:41
 #: perms/forms/remote_app_permission.py:43 perms/models/base.py:50
 #: templates/_nav.html:21 users/forms/user.py:168 users/models/group.py:31
-#: users/models/user.py:507 users/templates/users/_select_user_modal.html:16
+#: users/models/user.py:507 users/serializers/user.py:48
+#: users/templates/users/_select_user_modal.html:16
 #: users/templates/users/user_asset_permission.html:39
 #: users/templates/users/user_asset_permission.html:67
 #: users/templates/users/user_database_app_permission.html:38
@@ -2749,7 +2762,7 @@ msgstr ""
 "        </div>\n"
 "     "
 
-#: users/api/user.py:156
+#: users/api/user.py:158
 msgid "Could not reset self otp, use profile reset instead"
 msgstr "不能在该页面重置多因子认证, 请去个人信息页面重置"
 
@@ -2831,8 +2844,8 @@ msgid "Public key should not be the same as your old one."
 msgstr "不能和原来的密钥相同"
 
 #: users/forms/profile.py:137 users/forms/user.py:90
-#: users/serializers/user.py:189 users/serializers/user.py:271
-#: users/serializers/user.py:329
+#: users/serializers/user.py:192 users/serializers/user.py:274
+#: users/serializers/user.py:332
 msgid "Not a valid ssh public key"
 msgstr "SSH密钥不合法"
 
@@ -2902,63 +2915,63 @@ msgstr "微信"
 msgid "Date password last updated"
 msgstr "最后更新密码日期"
 
-#: users/models/user.py:657
+#: users/models/user.py:663
 msgid "Administrator"
 msgstr "管理员"
 
-#: users/models/user.py:660
+#: users/models/user.py:666
 msgid "Administrator is the super user of system"
 msgstr "Administrator是初始的超级管理员"
 
-#: users/serializers/user.py:50 users/serializers/user.py:84
+#: users/serializers/user.py:53 users/serializers/user.py:87
 msgid "Organization role name"
 msgstr "组织角色名称"
 
-#: users/serializers/user.py:75 users/serializers/user.py:242
+#: users/serializers/user.py:78 users/serializers/user.py:245
 msgid "Is first login"
 msgstr "首次登录"
 
-#: users/serializers/user.py:76
+#: users/serializers/user.py:79
 msgid "Is valid"
 msgstr "账户是否有效"
 
-#: users/serializers/user.py:77
+#: users/serializers/user.py:80
 msgid "Is expired"
 msgstr " 是否过期"
 
-#: users/serializers/user.py:78
+#: users/serializers/user.py:81
 msgid "Avatar url"
 msgstr "头像路径"
 
-#: users/serializers/user.py:82
+#: users/serializers/user.py:85
 msgid "Groups name"
 msgstr "用户组名"
 
-#: users/serializers/user.py:83
+#: users/serializers/user.py:86
 msgid "Source name"
 msgstr "用户来源名"
 
-#: users/serializers/user.py:85
+#: users/serializers/user.py:88
 msgid "Super role name"
 msgstr "超级角色名称"
 
-#: users/serializers/user.py:86
+#: users/serializers/user.py:89
 msgid "Total role name"
 msgstr "汇总角色名称"
 
-#: users/serializers/user.py:109
+#: users/serializers/user.py:112
 msgid "Role limit to {}"
 msgstr "角色只能为 {}"
 
-#: users/serializers/user.py:121 users/serializers/user.py:295
+#: users/serializers/user.py:124 users/serializers/user.py:298
 msgid "Password does not match security rules"
 msgstr "密码不满足安全规则"
 
-#: users/serializers/user.py:287
+#: users/serializers/user.py:290
 msgid "The old password is incorrect"
 msgstr "旧密码错误"
 
-#: users/serializers/user.py:301
+#: users/serializers/user.py:304
 msgid "The newly set password is inconsistent"
 msgstr "两次密码不一致"
 
@@ -3887,11 +3900,7 @@ msgstr "同步日期"
 msgid "Unsync"
 msgstr "未同步"
 
-#: xpack/plugins/cloud/models.py:246
-msgid "New Sync"
-msgstr "新同步"
-
-#: xpack/plugins/cloud/models.py:247
+#: xpack/plugins/cloud/models.py:246 xpack/plugins/cloud/models.py:247
 msgid "Synced"
 msgstr "已同步"
 

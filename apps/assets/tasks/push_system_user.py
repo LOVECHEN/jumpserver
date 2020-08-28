@@ -2,6 +2,7 @@
 
 from itertools import groupby
 from celery import shared_task
+from common.db.utils import get_object_if_need, get_objects_if_need
 from django.utils.translation import ugettext as _
 from django.db.models import Empty
 
@@ -220,33 +221,9 @@ def push_system_user_util(system_user, assets, task_name, username=None):
             run_task(tasks, [_host])
 
 
-def _get_object_if_need(model, pk):
-    if not isinstance(pk, model):
-        try:
-            return model.objects.get(id=pk)
-        except model.DoesNotExist as e:
-            logger.error(f'Task: <{model.__name__}:{pk}> not exist')
-            raise e
-    return pk
-
-
-def _get_objects_if_need(model, pks):
-    if not pks:
-        return pks
-    if not isinstance(pks[0], model):
-        objs = list(model.objects.filter(id__in=pks))
-        if len(objs) != len(pks):
-            pks = set(pks)
-            exists_pks = {o.id for o in objs}
-            not_found_pks = ','.join(pks - exists_pks)
-            logger.error(f'Task: <{model.__name__}: {not_found_pks}>')
-        return objs
-    return pks
-
-
 @shared_task(queue="ansible")
 def push_system_user_to_assets_manual(system_user, username=None):
-    system_user = _get_object_if_need(SystemUser, system_user)
+    system_user = get_object_if_need(SystemUser, system_user)
     assets = system_user.get_related_assets()
     task_name = _("Push system users to assets: {}").format(system_user.name)
     return push_system_user_util(system_user, assets, task_name=task_name, username=username)
@@ -265,11 +242,10 @@ def push_system_user_a_asset_manual(system_user, asset, username=None):
 @shared_task(queue="ansible")
 def push_system_user_to_assets(system_user, assets, username=None):
     task_name = _("Push system users to assets: {}").format(system_user.name)
-    system_user = _get_object_if_need(SystemUser, system_user)
-    assets = _get_objects_if_need(Asset, assets)
+    system_user = get_object_if_need(SystemUser, system_user)
+    assets = get_objects_if_need(Asset, assets)
     return push_system_user_util(system_user, assets, task_name, username=username)
 
-from django_redis.client import DefaultClient
 # @shared_task
 # @register_as_period_task(interval=3600)
 # @after_app_ready_start

@@ -19,7 +19,7 @@ from common.tree import TreeNodeSerializer
 from common.const.distributed_lock_key import UPDATE_NODE_TREE_LOCK_KEY
 from orgs.mixins.api import OrgModelViewSet
 from orgs.mixins import generics
-from orgs.lock import with_distributed_lock
+from orgs.lock import org_level_transaction_lock
 from ..hands import IsOrgAdmin
 from ..models import Node
 from ..tasks import (
@@ -212,8 +212,8 @@ class NodeAddChildrenApi(generics.UpdateAPIView):
         return Response("OK")
 
 
-@method_decorator(with_distributed_lock(UPDATE_NODE_TREE_LOCK_KEY), name='patch')
-@method_decorator(with_distributed_lock(UPDATE_NODE_TREE_LOCK_KEY), name='put')
+@method_decorator(org_level_transaction_lock(UPDATE_NODE_TREE_LOCK_KEY), name='patch')
+@method_decorator(org_level_transaction_lock(UPDATE_NODE_TREE_LOCK_KEY), name='put')
 class NodeAddAssetsApi(generics.UpdateAPIView):
     model = Node
     serializer_class = serializers.NodeAssetsSerializer
@@ -226,8 +226,8 @@ class NodeAddAssetsApi(generics.UpdateAPIView):
         instance.assets.add(*tuple(assets))
 
 
-@method_decorator(with_distributed_lock(UPDATE_NODE_TREE_LOCK_KEY), name='patch')
-@method_decorator(with_distributed_lock(UPDATE_NODE_TREE_LOCK_KEY), name='put')
+@method_decorator(org_level_transaction_lock(UPDATE_NODE_TREE_LOCK_KEY), name='patch')
+@method_decorator(org_level_transaction_lock(UPDATE_NODE_TREE_LOCK_KEY), name='put')
 class NodeRemoveAssetsApi(generics.UpdateAPIView):
     model = Node
     serializer_class = serializers.NodeAssetsSerializer
@@ -244,8 +244,8 @@ class NodeRemoveAssetsApi(generics.UpdateAPIView):
         Node.org_root().assets.add(*orphan_assets)
 
 
-@method_decorator(with_distributed_lock(UPDATE_NODE_TREE_LOCK_KEY), name='patch')
-@method_decorator(with_distributed_lock(UPDATE_NODE_TREE_LOCK_KEY), name='put')
+@method_decorator(org_level_transaction_lock(UPDATE_NODE_TREE_LOCK_KEY), name='patch')
+@method_decorator(org_level_transaction_lock(UPDATE_NODE_TREE_LOCK_KEY), name='put')
 class NodeReplaceAssetsApi(generics.UpdateAPIView):
     model = Node
     serializer_class = serializers.NodeAssetsSerializer

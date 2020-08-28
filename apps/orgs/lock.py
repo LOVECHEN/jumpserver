@@ -84,7 +84,7 @@ def _generate_value(request: Request, stage=DOING):
 default_wait_msg = SomeoneIsDoingThis.default_detail
 
 
-def with_distributed_lock(key, timeout=300, wait_msg=default_wait_msg):
+def org_level_transaction_lock(key, timeout=300, wait_msg=default_wait_msg):
     """
     被装饰的 `View` 必须取消自身的 `ATOMIC_REQUESTS`，因为该装饰器要有事务的完全控制权
     [官网](https://docs.djangoproject.com/en/3.1/topics/db/transactions/#tying-transactions-to-http-requests)

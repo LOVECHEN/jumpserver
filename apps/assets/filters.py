@@ -43,10 +43,6 @@ class AssetByNodeFilterBackend(filters.BaseFilterBackend):
             node = get_object_or_none(Node, key=node_id)
         return node, True
 
-    @staticmethod
-    def perform_query(pattern, queryset):
-        return queryset.filter(nodes__key__regex=pattern).distinct()
-
     def filter_queryset(self, request, queryset, view):
         node, has_query_arg = self.get_query_node(request)
         if not has_query_arg:
@@ -56,12 +52,9 @@ class AssetByNodeFilterBackend(filters.BaseFilterBackend):
             return queryset
         query_all = self.is_query_all(request)
         if query_all:
-            pattern = node.get_all_children_pattern(with_self=True)
+            return queryset.filter(Q(nodes__key__istartswith=f'{node.key}:') | Q(nodes__key=node.key)).distinct()
         else:
-            # pattern = node.get_children_key_pattern(with_self=True)
-            # 只显示当前节点下资产
-            pattern = r"^{}$".format(node.key)
-        return self.perform_query(pattern, queryset)
+            return queryset.filter(nodes__key=node.key).distinct()
 
 
 class LabelFilterBackend(filters.BaseFilterBackend):

@@ -188,7 +188,7 @@ class FamilyMixin:
         return Node.objects.filter(q)
 
     def get_all_children(self, with_self=False):
-        q = Q(key__startswith=f'{self.key}:')
+        q = Q(key__istartswith=f'{self.key}:')
         if with_self:
             q |= Q(key=self.key)
         return Node.objects.filter(q)

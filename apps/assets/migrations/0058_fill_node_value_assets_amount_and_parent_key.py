@@ -9,7 +9,7 @@ def fill_node_value(apps, schema_editor):
     Asset = apps.get_model('assets', 'Asset')
     for node in Node.objects.all():
         assets_amount = Asset.objects.filter(
-            Q(nodes__key__startswith=f'{node.key}:') | Q(nodes=node)
+            Q(nodes__key__istartswith=f'{node.key}:') | Q(nodes=node)
         ).distinct().count()
         key = node.key
         try:

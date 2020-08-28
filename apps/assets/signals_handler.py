@@ -263,7 +263,7 @@ def _update_node_assets_amount(node: Node, asset_pk_set: set, operator=add):
         asset_pk_set -= set(Asset.objects.filter(
             id__in=asset_pk_set
         ).filter(
-            Q(nodes__key__startswith=f'{ancestor.key}:') |
+            Q(nodes__key__istartswith=f'{ancestor.key}:') |
             Q(nodes__key=ancestor.key)
         ).distinct().values_list('id', flat=True))
         if not asset_pk_set:
@@ -288,7 +288,7 @@ def _is_asset_exists_in_node(asset_pk, node_key):
     return Asset.objects.filter(
         id=asset_pk
     ).filter(
-        Q(nodes__key__startswith=f'{node_key}:') | Q(nodes__key=node_key)
+        Q(nodes__key__istartswith=f'{node_key}:') | Q(nodes__key=node_key)
     ).exists()
 
 

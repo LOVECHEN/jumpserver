@@ -11,6 +11,7 @@ from orgs.mixins.api import OrgBulkModelViewSet
 from orgs.mixins import generics
 from ..models import Asset, Node, Platform
 from .. import serializers
+from ..pagination import AssetLimitOffsetPagination
 from ..tasks import (
     update_asset_hardware_info_manual, test_asset_connectivity_manual
 )
@@ -42,6 +43,7 @@ class AssetViewSet(OrgBulkModelViewSet):
     }
     permission_classes = (IsOrgAdminOrAppUser,)
     extra_filter_backends = [AssetByNodeFilterBackend, LabelFilterBackend, IpInFilterBackend]
+    pagination_class = AssetLimitOffsetPagination
 
     def set_assets_node(self, assets):
         if not isinstance(assets, list):

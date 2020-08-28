@@ -1,4 +1,6 @@
-from assets.tasks.push_system_user import logger
+from common.utils import get_logger
+
+logger = get_logger(__file__)
 
 
 def get_object_if_need(model, pk):

@@ -2,8 +2,9 @@
 #
 from operator import add, sub
 
+from assets.utils import is_asset_exists_in_node
 from django.db.models.signals import (
-    post_save, m2m_changed, pre_save
+    post_save, m2m_changed
 )
 from django.db.models import Q, F
 from django.dispatch import receiver
@@ -275,14 +276,6 @@ def _remove_ancestor_keys(ancestor_key, tree_set):
         ancestor_key = compute_parent_key(ancestor_key)
 
 
-def _is_asset_exists_in_node(asset_pk, node_key):
-    return Asset.objects.filter(
-        id=asset_pk
-    ).filter(
-        Q(nodes__key__istartswith=f'{node_key}:') | Q(nodes__key=node_key)
-    ).exists()
-
-
 def _update_nodes_asset_amount(node_keys, asset_pk, operator):
     # 所有相关节点的祖先节点，组成一棵局部树
     ancestor_keys = set()
@@ -296,7 +289,7 @@ def _update_nodes_asset_amount(node_keys, asset_pk, operator):
     for key in node_keys:
         # 遍历相关节点，处理它及其祖先节点
         # 查询该节点是否包含待处理资产
-        exists = _is_asset_exists_in_node(asset_pk, key)
+        exists = is_asset_exists_in_node(asset_pk, key)
         parent_key = compute_parent_key(key)
 
         if exists:
@@ -309,7 +302,7 @@ def _update_nodes_asset_amount(node_keys, asset_pk, operator):
             # 这里判断 `parent_key` 不能是空，防止数据错误导致的死循环
             # 判断是否在集合里，来区分是否已被处理过
             while parent_key and parent_key in ancestor_keys:
-                exists = _is_asset_exists_in_node(asset_pk, parent_key)
+                exists = is_asset_exists_in_node(asset_pk, parent_key)
                 if exists:
                     _remove_ancestor_keys(parent_key, ancestor_keys)
                     break

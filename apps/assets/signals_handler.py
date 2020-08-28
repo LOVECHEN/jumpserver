@@ -172,6 +172,7 @@ def on_system_user_groups_change(instance, action, pk_set, reverse, **kwargs):
                 user_id=user_pk
             ))
         # 当 `SystemUser` 是 `username_same_with_user` 并且有新用户添加，推送它
+        # TODO 待优化
         if system_user_pk_set in username_same_with_users and len(to_create) > old_len:
             push_system_user_to_assets_manual.delay(system_user_pk)
 

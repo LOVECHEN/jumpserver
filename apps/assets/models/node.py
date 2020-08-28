@@ -11,7 +11,8 @@ from django.utils.translation import ugettext_lazy as _
 from django.utils.translation import ugettext
 from django.core.cache import cache
 
-from common.utils import get_logger, lazyproperty
+from common.utils import get_logger
+from common.utils.common import lazyproperty
 from orgs.mixins.models import OrgModelMixin, OrgManager
 from orgs.utils import get_current_org, tmp_to_org, current_org
 from orgs.models import Organization
@@ -30,7 +31,7 @@ def compute_parent_key(key):
 
 class NodeQuerySet(models.QuerySet):
     def delete(self):
-        raise PermissionError("Bulk delete node deny")
+        raise NotImplementedError
 
 
 class TreeCache:
@@ -202,12 +203,11 @@ class FamilyMixin:
         return self.get_all_children(with_self=False)
 
     def create_child(self, value, _id=None):
-        with transaction.atomic():
-            child_key = self.get_next_child_key()
-            child = self.__class__.objects.create(
-                id=_id, key=child_key, value=value
-            )
-            return child
+        child_key = self.get_next_child_key()
+        child = self.__class__.objects.create(
+            id=_id, key=child_key, value=value, parent_key=self.key,
+        )
+        return child
 
     def get_or_create_child(self, value, _id=None):
         """
@@ -311,17 +311,6 @@ class FamilyMixin:
         ancestors = self.get_ancestors()
         children = self.get_all_children()
         return [*tuple(ancestors), self, *tuple(children)]
-
-
-class FullValueMixin:
-    key = ''
-
-    @lazyproperty
-    def full_value(self):
-        if self.is_org_root():
-            return self.value
-        value = self.tree().get_node_full_tag(self.key)
-        return value
 
 
 class NodeAssetsMixin:
@@ -509,7 +498,7 @@ class SomeNodesMixin:
                     logger.info('Modify key ( {} > {} )'.format(old_key, new_key))
 
 
-class Node(OrgModelMixin, SomeNodesMixin, FamilyMixin, FullValueMixin, NodeAssetsMixin):
+class Node(OrgModelMixin, SomeNodesMixin, FamilyMixin, NodeAssetsMixin):
     id = models.UUIDField(default=uuid.uuid4, primary_key=True)
     key = models.CharField(unique=True, max_length=64, verbose_name=_("Key"), db_index=True)  # '1:1:1:1'
     value = models.CharField(max_length=128, verbose_name=_("Value"))
@@ -551,6 +540,16 @@ class Node(OrgModelMixin, SomeNodesMixin, FamilyMixin, FullValueMixin, NodeAsset
     @property
     def name(self):
         return self.value
+
+    @lazyproperty
+    def full_value(self):
+        # 不要在列表中调用该属性
+        values = self.__class__.objects.filter(
+            key__in=self.get_ancestor_keys()
+        ).values_list('key', 'value')
+        values = [v for k, v in sorted(values, key=lambda x: len(x[0]))]
+        values.append(self.value)
+        return ' / '.join(values)
 
     @property
     def level(self):

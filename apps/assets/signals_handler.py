@@ -35,15 +35,6 @@ def test_asset_conn_on_created(asset):
     test_asset_connectivity_util.delay([asset])
 
 
-@receiver(pre_save, sender=Node)
-def set_parent_key_if_need(instance: Node, **kwargs):
-    # 这里暂时全部更新 `parent_key` 字段
-    # 注意：如果 `Node` 更新指定 `update_fields` 一定要加上
-    # `parent_key` 字段，如下
-    #   `Node.objects.update(update_fields=['parent_key'])`
-    instance.parent_key = instance.compute_parent_key()
-
-
 @receiver(post_save, sender=Asset)
 @on_transaction_commit
 def on_asset_created_or_update(sender, instance=None, created=False, **kwargs):

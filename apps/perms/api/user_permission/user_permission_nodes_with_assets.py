@@ -134,7 +134,11 @@ class UserGrantedNodeChildrenWithAssetsAsTreeApi(ListAPIView):
                         mapping_nodes__granted_ref_count__gt=0
                     ).distinct()
                     if mapping_node.asset_granted_ref_count > 0:
-                        pass
+                        Asset.objects.filter(
+                            nodes__key=key,
+                            granted_by_permissions__users=user,
+                            granted_by_permissions__user_groups__users=user
+                        )
 
         data = self.serialize_nodes(nodes)
         self.serialize_assets(assets, key)

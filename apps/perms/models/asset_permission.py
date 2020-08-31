@@ -5,6 +5,7 @@ from functools import reduce
 from django.utils.translation import ugettext_lazy as _
 
 from common.db import models
+from common.fields.model import JsonListTextField
 from common.utils import lazyproperty
 from orgs.models import Organization
 from orgs.utils import get_current_org
@@ -14,7 +15,7 @@ from .base import BasePermission
 
 
 __all__ = [
-    'AssetPermission', 'Action', 'MappingNode',
+    'AssetPermission', 'Action', 'MappingNode', 'ToUpdateNode',
 ]
 logger = logging.getLogger(__name__)
 
@@ -176,8 +177,18 @@ class AssetPermission(BasePermission):
 
 
 class MappingNode(FamilyMixin, models.JMSBaseModel):
+    node = models.ForeignKey('assets.Node', default=None, on_delete=models.CASCADE,
+                             db_constraint=False, null=True, related_name='mapping_nodes')
     key = models.CharField(max_length=64, verbose_name=_("Key"), db_index=True)  # '1:1:1:1'
     user = models.ForeignKey('users.User', db_constraint=False, on_delete=models.CASCADE)
     granted = models.BooleanField(default=False, db_index=True)
     granted_ref_count = models.IntegerField(default=0)
     asset_granted_ref_count = models.IntegerField(default=0)
+    parent_key = models.CharField(max_length=64, default='', verbose_name=_('Parent key'), db_index=True)  # '1:1:1:1'
+
+
+class ToUpdateNode(models.JMSBaseModel):
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE, verbose_name=_('User'))
+    node_pks = JsonListTextField()
+    asset_pks = JsonListTextField()
+    action = models.CharField(max_length=32, default='')

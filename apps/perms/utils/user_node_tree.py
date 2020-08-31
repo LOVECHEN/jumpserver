@@ -85,7 +85,8 @@ def update_mapping_nodes(mapping_node_keys, user, nodes: List[Node], action):
                     user=user,
                     granted=_granted,
                     granted_ref_count=_granted_ref_count,
-                    asset_granted_ref_count=_asset_granted_ref_count
+                    asset_granted_ref_count=_asset_granted_ref_count,
+                    parent_key=node.parent_key,
                 )
                 to_create[node.key] = mapping_node
             else:

@@ -8,7 +8,7 @@ from django.conf import settings
 from django.db.models import Q
 from rest_framework.generics import ListAPIView
 
-from common.permissions import IsOrgAdminOrAppUser
+from common.permissions import IsOrgAdminOrAppUser, IsValidUser
 from common.utils import get_logger
 from common.utils.django import get_object_or_none
 from ...hands import Node
@@ -62,7 +62,12 @@ class UserGrantedAssetsAsTreeApi(UserAssetTreeMixin, UserGrantedAssetsApi):
     pass
 
 
-class UserGrantedNodeAssetsApi(UserGrantedAssetsApi):
+class UserGrantedNodeAssetsApi(ListAPIView):
+    permission_classes = (IsValidUser,)
+    serializer_class = serializers.AssetGrantedSerializer
+    only_fields = serializers.AssetGrantedSerializer.Meta.only_fields
+    filter_fields = ['hostname', 'ip', 'id', 'comment']
+    search_fields = ['hostname', 'ip', 'comment']
 
     def get_queryset(self):
         node_id = self.kwargs.get("node_id")
@@ -114,9 +119,9 @@ class UserGrantedNodeAssetsApi(UserGrantedAssetsApi):
                     q.append(reduce(or_, granted_nodes_qs))
 
                 if only_asset_granted_nodes_qs:
-                    q2 = reduce(or_, only_asset_granted_nodes_qs)
-                    q2 &= Q(granted_by_permissions__users=user)|Q(granted_by_permissions__user_groups__users=user)
-                    q.append(q2)
+                    only_asset_granted_nodes_q = reduce(or_, only_asset_granted_nodes_qs)
+                    only_asset_granted_nodes_q &= Q(granted_by_permissions__users=user) | Q(granted_by_permissions__user_groups__users=user)
+                    q.append(only_asset_granted_nodes_q)
 
                 if q:
                     assets = Asset.objects.filter(reduce(or_, q)).distinct()

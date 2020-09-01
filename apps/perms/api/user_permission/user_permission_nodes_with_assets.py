@@ -23,6 +23,7 @@ __all__ = [
     'UserGrantedNodesWithAssetsAsTreeApi',
     'UserGrantedNodeChildrenAsTreeApi',
     'UserGrantedNodeChildrenWithAssetsAsTreeApi',
+    'UserGrantedNodeChildrenApi',
 ]
 
 
@@ -89,4 +90,46 @@ class UserGrantedNodeChildrenWithAssetsAsTreeApi(SerializeToTreeNodeMixin, ListA
 
         nodes = self.serialize_nodes(nodes)
         # assets = self.serialize_assets(assets, key)
+        return Response(data=nodes)
+
+
+class UserGrantedNodeChildrenApi(SerializeToTreeNodeMixin, ListAPIView):
+    permission_classes = ()
+
+    def list(self, request: Request, *args, **kwargs):
+        user = request.user
+        key = request.query_params.get('key')
+
+        to_update_nodes = UpdateMappingNodeTask.objects.filter(user=user).order_by('date_created')
+        if to_update_nodes:
+            to_delete = []
+            for task in to_update_nodes:
+                nodes = Node.objects.filter(id__in=task.node_pks)
+                on_node_asset_change(user, nodes, len(task.asset_pks), task.action)
+                to_delete.append(task.id)
+            UpdateMappingNodeTask.objects.filter(id__in=to_delete).delete()
+
+        nodes = []
+        if not key:
+            root_node = Node.objects.filter(
+                mapping_nodes__user=user,
+                mapping_nodes__granted_ref_count__gt=0
+            ).get(parent_key='')
+            nodes.append(root_node)
+        else:
+            mapping_node: MappingNode = get_object_or_none(
+                MappingNode, user=user, key=key, granted_ref_count__gt=0)
+            if mapping_node is None:
+                nodes = Node.objects.filter(parent_key=key)
+            else:
+                if mapping_node.granted:
+                    nodes = Node.objects.filter(parent_key=key)
+                else:
+                    nodes = Node.objects.filter(
+                        mapping_nodes__parent_key=key,
+                        mapping_nodes__user=user,
+                        mapping_nodes__granted_ref_count__gt=0
+                    ).distinct()
+
+        nodes = self.serialize_nodes(nodes)
         return Response(data=nodes)

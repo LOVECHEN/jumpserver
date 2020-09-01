@@ -12,9 +12,10 @@ from ...utils import ParserNode
 from .mixin import UserAssetTreeMixin
 from .user_permission_nodes import UserGrantedNodesAsTreeApi
 from .user_permission_nodes import UserGrantedNodeChildrenAsTreeApi
-from perms.models import MappingNode
+from perms.models import MappingNode, UpdateMappingNodeTask
+from perms.utils.user_node_tree import on_node_asset_change
 from assets.models import Node, Asset
-
+from assets.api import SerializeToTreeNodeMixin
 
 logger = get_logger(__name__)
 
@@ -42,79 +43,28 @@ class UserGrantedNodesWithAssetsAsTreeApi(UserGrantedNodesAsTreeApi):
         return _queryset
 
 
-class UserGrantedNodeChildrenWithAssetsAsTreeApi(ListAPIView):
-    nodes_only_fields = ParserNode.nodes_only_fields
-    assets_only_fields = ParserNode.assets_only_fields
-
-    def serialize_nodes(self, nodes: List[Node]):
-        data = [
-            {
-                'id': node.key,
-                'name': node.value,
-                'title': node.value,
-                'pId': node.parent_key,
-                'isParent': True,
-                'open': node.is_org_root(),
-                'meta': {
-                    'node': {
-                        "id": node.id,
-                        "key": node.key,
-                        "value": node.value,
-                    },
-                    'type': 'node'
-                }
-            }
-            for node in nodes
-        ]
-        return data
-
-    def get_platform(self, asset: Asset):
-        default = 'file'
-        icon = {'windows', 'linux'}
-        platform = asset.platform_base.lower()
-        if platform in icon:
-            return platform
-        return default
-
-    def serialize_assets(self, assets, node_key):
-        data = [
-            {
-                'id': str(asset.id),
-                'name': asset.hostname,
-                'title': asset.ip,
-                'pId': node_key,
-                'isParent': False,
-                'open': False,
-                'iconSkin': self.get_platform(asset),
-                'nocheck': not asset.has_protocol('ssh'),
-                'meta': {
-                    'type': 'asset',
-                    'asset': {
-                        'id': asset.id,
-                        'hostname': asset.hostname,
-                        'ip': asset.ip,
-                        'protocols': asset.protocols_as_list,
-                        'platform': asset.platform_base,
-                        'domain': asset.domain_id,
-                        'org_name': asset.org_name,
-                        'org_id': asset.org_id
-                    },
-                }
-            }
-            for asset in assets
-        ]
-        return data
+class UserGrantedNodeChildrenWithAssetsAsTreeApi(SerializeToTreeNodeMixin, ListAPIView):
+    permission_classes = ()
 
     def list(self, request: Request, *args, **kwargs):
         user = request.user
         key = request.query_params.get('key')
+
+        to_update_nodes = UpdateMappingNodeTask.objects.filter(user=user).order_by('date_created')
+        if to_update_nodes:
+            to_delete = []
+            for task in to_update_nodes:
+                nodes = Node.objects.filter(id__in=task.node_pks)
+                on_node_asset_change(user, nodes, len(task.asset_pks), task.action)
+                to_delete.append(task.id)
+            UpdateMappingNodeTask.objects.filter(id__in=to_delete).delete()
 
         nodes = []
         assets = []
         if not key:
             root_node = Node.objects.filter(
                 mapping_nodes__user=user,
-                granted_ref_count__gt=0
+                mapping_nodes__granted_ref_count__gt=0
             ).get(parent_key='')
             nodes.append(root_node)
         else:
@@ -134,12 +84,13 @@ class UserGrantedNodeChildrenWithAssetsAsTreeApi(ListAPIView):
                         mapping_nodes__granted_ref_count__gt=0
                     ).distinct()
                     if mapping_node.asset_granted_ref_count > 0:
-                        Asset.objects.filter(
+                        assets = Asset.objects.filter(
                             nodes__key=key,
                             granted_by_permissions__users=user,
                             granted_by_permissions__user_groups__users=user
                         )
 
-        data = self.serialize_nodes(nodes)
-        self.serialize_assets(assets, key)
-        return data
+        nodes = self.serialize_nodes(nodes)
+        assets = self.serialize_assets(assets, key)
+        data = [*nodes, *assets]
+        return Response(data=data)

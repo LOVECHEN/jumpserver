@@ -5,13 +5,13 @@ from itertools import chain
 
 from django.db.models.signals import m2m_changed, post_save, post_delete, pre_delete
 from django.dispatch import receiver
-from django.db.models import Q
+from django.db.models import Q, F
 
 from users.models import User
 from assets.models import Node, Asset
 from common.utils import get_logger
 from common.const.signals import POST_ADD, POST_REMOVE, PRE_CLEAR
-from .models import AssetPermission, RemoteAppPermission, ToUpdateNode
+from .models import AssetPermission, RemoteAppPermission, UpdateMappingNodeTask
 from .utils import update_users_tree_for_perm_change, ADD, REMOVE, on_node_asset_change
 
 
@@ -267,11 +267,11 @@ def update_nodes_assets_amount(action, instance, reverse, pk_set, **kwargs):
     user_ap_query_name = AssetPermission.users.field.related_query_name()
     group_ap_query_name = AssetPermission.user_groups.field.related_query_name()
 
-    user_ap_q = Q(**{f'{user_ap_query_name}__assets_id__in': asset_pk_set})
-    group_ap_q = Q(**{f'groups__{group_ap_query_name}__assets_id__in': asset_pk_set})
+    user_ap_q = Q(**{f'{user_ap_query_name}__assets__id__in': asset_pk_set})
+    group_ap_q = Q(**{f'groups__{group_ap_query_name}__assets__id__in': asset_pk_set})
 
-    from_user = User.objects.filter(user_ap_q).annotate(asset_pk=f'{user_ap_query_name}__assets_id').values_list('id', 'asset_pk')
-    from_group = User.objects.filter(group_ap_q).annotate(asset_pk=f'groups__{group_ap_query_name}__assets_id').values_list('id', 'asset_pk')
+    from_user = User.objects.filter(user_ap_q).annotate(asset_pk=F(f'{user_ap_query_name}__assets__id')).values_list('id', 'asset_pk')
+    from_group = User.objects.filter(group_ap_q).annotate(asset_pk=F(f'groups__{group_ap_query_name}__assets__id')).values_list('id', 'asset_pk')
 
     user_asset_pk_mapper = defaultdict(set)
     for user_id, asset_id in chain(from_user, from_group):
@@ -279,12 +279,13 @@ def update_nodes_assets_amount(action, instance, reverse, pk_set, **kwargs):
 
     to_create = []
     if user_asset_pk_mapper:
-        for user_id, asset_pks in user_asset_pk_mapper:
-            to_create.append(ToUpdateNode(
+        for user_id, asset_pks in user_asset_pk_mapper.items():
+            asset_pks = [str(pk) for pk in asset_pks]
+            to_create.append(UpdateMappingNodeTask(
                 user_id=user_id,
                 node_pks=node_pks,
                 asset_pks=asset_pks,
                 action=mapper[action],
             ))
 
-    ToUpdateNode.objects.bulk_create(to_create)
+    UpdateMappingNodeTask.objects.bulk_create(to_create)

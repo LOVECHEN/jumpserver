@@ -6,10 +6,11 @@ from django.conf import settings
 from rest_framework.generics import ListAPIView
 
 from common.permissions import IsOrgAdminOrAppUser
-from common.utils import get_logger, timeit
+from common.utils import get_logger
 from ...hands import Node
 from ... import serializers
 from .mixin import UserAssetPermissionMixin, UserAssetTreeMixin
+from perms.models import MappingNode
 
 
 logger = get_logger(__name__)
@@ -59,8 +60,6 @@ class UserGrantedAssetsAsTreeApi(UserAssetTreeMixin, UserGrantedAssetsApi):
 class UserGrantedNodeAssetsApi(UserGrantedAssetsApi):
     def get_queryset(self):
         node_id = self.kwargs.get("node_id")
-        node = get_object_or_404(Node, pk=node_id)
-        deep = self.request.query_params.get("all", "0") == "1"
-        queryset = self.util.get_nodes_assets(node, deep=deep)\
-            .only(*self.only_fields)
+        mapping_node: MappingNode = get_object_or_404(MappingNode, node_id=node_id)
+
         return queryset

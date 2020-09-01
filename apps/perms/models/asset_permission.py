@@ -15,7 +15,7 @@ from .base import BasePermission
 
 
 __all__ = [
-    'AssetPermission', 'Action', 'MappingNode', 'ToUpdateNode',
+    'AssetPermission', 'Action', 'MappingNode', 'UpdateMappingNodeTask',
 ]
 logger = logging.getLogger(__name__)
 
@@ -187,7 +187,7 @@ class MappingNode(FamilyMixin, models.JMSBaseModel):
     parent_key = models.CharField(max_length=64, default='', verbose_name=_('Parent key'), db_index=True)  # '1:1:1:1'
 
 
-class ToUpdateNode(models.JMSBaseModel):
+class UpdateMappingNodeTask(models.JMSBaseModel):
     user = models.ForeignKey('users.User', on_delete=models.CASCADE, verbose_name=_('User'))
     node_pks = JsonListTextField()
     asset_pks = JsonListTextField()

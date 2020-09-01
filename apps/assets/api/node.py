@@ -27,6 +27,7 @@ from ..tasks import (
     test_node_assets_connectivity_manual,
 )
 from .. import serializers
+from .mixin import SerializeToTreeNodeMixin
 
 
 logger = get_logger(__file__)
@@ -145,7 +146,7 @@ class NodeChildrenApi(generics.ListCreateAPIView):
         return queryset
 
 
-class NodeChildrenAsTreeApi(NodeChildrenApi):
+class NodeChildrenAsTreeApi(SerializeToTreeNodeMixin, NodeChildrenApi):
     """
     节点子节点作为树返回，
     [
@@ -159,26 +160,23 @@ class NodeChildrenAsTreeApi(NodeChildrenApi):
 
     """
     model = Node
-    serializer_class = TreeNodeSerializer
-    http_method_names = ['get']
 
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        queryset = [node.as_tree_node() for node in queryset]
-        queryset = sorted(queryset)
-        return queryset
+    def list(self, request, *args, **kwargs):
+        nodes = self.get_queryset().order_by('value')
+        nodes = self.serialize_nodes(nodes, with_asset_amount=True)
+        assets = self.get_assets()
+        data = [*nodes, *assets]
+        return Response(data=data)
 
-    def add_assets_if_need(self, queryset):
+    def get_assets(self):
         include_assets = self.request.query_params.get('assets', '0') == '1'
-        if not include_assets:
-            return queryset
+        if not include_assets or not self.instance.parent_key:
+            return []
         assets = self.instance.get_assets().only(
             "id", "hostname", "ip", "os",
             "org_id", "protocols",
         )
-        for asset in assets:
-            queryset.append(asset.as_tree_node(self.instance))
-        return queryset
+        return self.serialize_assets(assets, self.instance.key)
 
 
 class NodeAssetsApi(generics.ListAPIView):

@@ -87,6 +87,7 @@ def update_mapping_nodes(mapping_node_keys, user, nodes: List[Node], action):
                     granted_ref_count=_granted_ref_count,
                     asset_granted_ref_count=_asset_granted_ref_count,
                     parent_key=node.parent_key,
+                    node=node,
                 )
                 to_create[node.key] = mapping_node
             else:
@@ -155,7 +156,7 @@ def update_users_tree_for_perm_change(users,
 
     # 查询出要用的祖先节点
     key2ancestor_node_map = {node.key: node for node in
-                             Node.objects.filter(key__in=set(chain(ancestor_keys_groups)))}
+                             Node.objects.filter(key__in=set(chain(*ancestor_keys_groups)))}
 
     update_ancestor_node(node2ancestor_keys_map, key2ancestor_node_map)
     update_ancestor_node(asset_granted_nodes2ancestor_keys_map, key2ancestor_node_map)

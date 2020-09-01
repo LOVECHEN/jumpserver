@@ -1,16 +1,21 @@
 # -*- coding: utf-8 -*-
 #
+from operator import or_
+from functools import reduce
 
 from django.shortcuts import get_object_or_404
 from django.conf import settings
+from django.db.models import Q
 from rest_framework.generics import ListAPIView
 
 from common.permissions import IsOrgAdminOrAppUser
 from common.utils import get_logger
+from common.utils.django import get_object_or_none
 from ...hands import Node
 from ... import serializers
 from .mixin import UserAssetPermissionMixin, UserAssetTreeMixin
 from perms.models import MappingNode
+from assets.models import Asset
 
 
 logger = get_logger(__name__)
@@ -58,8 +63,62 @@ class UserGrantedAssetsAsTreeApi(UserAssetTreeMixin, UserGrantedAssetsApi):
 
 
 class UserGrantedNodeAssetsApi(UserGrantedAssetsApi):
+
     def get_queryset(self):
         node_id = self.kwargs.get("node_id")
-        mapping_node: MappingNode = get_object_or_404(MappingNode, node_id=node_id)
+        user = self.request.user
 
-        return queryset
+        assets = Asset.objects.none()
+
+        mapping_node: MappingNode = get_object_or_none(
+            MappingNode, user=user, node_id=node_id, granted_ref_count__gt=0)
+        node = Node.objects.get(id=node_id)
+        if mapping_node is None:
+            assets = Asset.objects.filter(
+                Q(nodes__key__startswith=f'{node.key}:') |
+                Q(nodes__id=node_id)
+            ).distinct()
+        else:
+            if mapping_node.granted:
+                assets = Asset.objects.filter(
+                    Q(nodes__key__startswith=f'{node.key}:') |
+                    Q(nodes__id=node_id)
+                ).distinct()
+            else:
+                granted_mapping_nodes = MappingNode.objects.filter(
+                    granted=True,
+                    granted_ref_count__gt=0,
+                    key__startswith=f'{node.key}:',
+                )
+
+                granted_nodes_qs = []
+                for node in granted_mapping_nodes:
+                    granted_nodes_qs.append(Q(nodes__key__startswith=f'{node.key}:'))
+                    granted_nodes_qs.append(Q(nodes__key=node.key))
+
+                only_asset_granted_mapping_nodes = MappingNode.objects.filter(
+                    granted=False,
+                    asset_granted_ref_count__gt=0,
+                    key__startswith=f'{node.key}:',
+                )
+
+                only_asset_granted_nodes_qs = []
+                for node in only_asset_granted_mapping_nodes:
+                    only_asset_granted_nodes_qs.append(Q(nodes__id=node.node_id))
+
+                if mapping_node.asset_granted_ref_count > 0:
+                    only_asset_granted_nodes_qs.append(Q(nodes__id=node_id))
+
+                q = []
+                if granted_nodes_qs:
+                    q.append(reduce(or_, granted_nodes_qs))
+
+                if only_asset_granted_nodes_qs:
+                    q2 = reduce(or_, only_asset_granted_nodes_qs)
+                    q2 &= Q(granted_by_permissions__users=user)|Q(granted_by_permissions__user_groups__users=user)
+                    q.append(q2)
+
+                if q:
+                    assets = Asset.objects.filter(reduce(or_, q)).distinct()
+
+        return assets

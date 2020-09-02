@@ -6,24 +6,26 @@ from rest_framework.generics import (
     ListAPIView, get_object_or_404
 )
 
-from common.permissions import IsOrgAdminOrAppUser
+from users.models import User
+from common.permissions import IsOrgAdminOrAppUser, IsValidUser
 from common.utils import get_logger
 from ...hands import Node, NodeSerializer
 from ... import serializers
-from .mixin import UserNodeTreeMixin, UserAssetPermissionMixin
+from .mixin import UserNodeTreeMixin
 
 
 logger = get_logger(__name__)
 
 __all__ = [
-    'UserGrantedNodesApi',
+    'UserGrantedNodesForAdminApi',
+    'UserGrantedNodesForUserApi',
     'UserGrantedNodesAsTreeApi',
     'UserGrantedNodeChildrenApi',
     'UserGrantedNodeChildrenAsTreeApi',
 ]
 
 
-class UserGrantedNodesApi(UserAssetPermissionMixin, ListAPIView):
+class UserGrantedNodesForAdminApi(ListAPIView):
     """
     查询用户授权的所有节点的API
     """
@@ -31,24 +33,29 @@ class UserGrantedNodesApi(UserAssetPermissionMixin, ListAPIView):
     serializer_class = serializers.NodeGrantedSerializer
     nodes_only_fields = NodeSerializer.Meta.only_fields
 
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        if self.serializer_class == serializers.NodeGrantedSerializer:
-            context["tree"] = self.tree
-        return context
+    def get_user(self):
+        return User.objects.get(id=self.kwargs.get('pk'))
 
     def get_queryset(self):
-        node_keys = self.util.get_nodes()
-        queryset = Node.objects.filter(key__in=node_keys)\
-            .only(*self.nodes_only_fields)
+        user = self.get_user()
+        queryset = Node.objects.filter(granted_by_permissions__users=user).distinct().only(
+            *self.nodes_only_fields
+        )
         return queryset
 
 
-class UserGrantedNodesAsTreeApi(UserNodeTreeMixin, UserGrantedNodesApi):
+class UserGrantedNodesForUserApi(UserGrantedNodesForAdminApi):
+    permission_classes = (IsValidUser,)
+
+    def get_user(self):
+        return self.request.user
+
+
+class UserGrantedNodesAsTreeApi(UserNodeTreeMixin, UserGrantedNodesForAdminApi):
     pass
 
 
-class UserGrantedNodeChildrenApi(UserGrantedNodesApi):
+class UserGrantedNodeChildrenApi(UserGrantedNodesForAdminApi):
     node = None
     root_keys = None  # 如果是第一次访问，则需要把二级节点添加进去，这个 roots_keys
 

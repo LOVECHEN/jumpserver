@@ -23,7 +23,7 @@ class UserGroupGrantedNodeAssetsApi(UserGroupPermissionMixin, uapi.UserGrantedNo
     pass
 
 
-class UserGroupGrantedNodesApi(UserGroupPermissionMixin, uapi.UserGrantedNodesApi):
+class UserGroupGrantedNodesApi(UserGroupPermissionMixin, uapi.UserGrantedNodesForAdminApi):
     pass
 
 

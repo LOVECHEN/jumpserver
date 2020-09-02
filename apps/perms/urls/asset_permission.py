@@ -21,12 +21,12 @@ user_permission_urlpatterns = [
     path('assets/tree/', api.UserGrantedAssetsAsTreeApi.as_view(), name='my-assets-as-tree'),
 
     # Nodes
-    path('<uuid:pk>/nodes/', api.UserGrantedNodesApi.as_view(), name='user-nodes'),
-    path('nodes/', api.UserGrantedNodesApi.as_view(), name='my-nodes'),
+    path('<uuid:pk>/nodes/', api.UserGrantedNodesForUserApi.as_view(), name='user-nodes'),
+    path('nodes/', api.UserGrantedNodesForAdminApi.as_view(), name='my-nodes'),
 
     # Node children
     path('<uuid:pk>/nodes/children/', api.UserGrantedNodeChildrenApi.as_view(), name='user-nodes-children'),
-    path('nodes/children/', api.UserGrantedNodesApi.as_view(), name='my-nodes-children'),
+    path('nodes/children/', api.UserGrantedNodeChildrenApi.as_view(), name='my-nodes-children'),
 
     # Node as tree
     path('<uuid:pk>/nodes/tree/', api.UserGrantedNodesAsTreeApi.as_view(), name='user-nodes-as-tree'),

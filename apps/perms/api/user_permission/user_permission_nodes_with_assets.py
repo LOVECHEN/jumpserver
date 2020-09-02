@@ -4,6 +4,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from common.exceptions import SomeoneIsDoingThis
 from common.utils.django import get_object_or_none
 from common.utils import get_logger
 from ...utils import ParserNode
@@ -12,8 +13,11 @@ from .user_permission_nodes import UserGrantedNodesAsTreeApi
 from .user_permission_nodes import UserGrantedNodeChildrenAsTreeApi
 from perms.models import MappingNode, UpdateMappingNodeTask
 from perms.utils.user_node_tree import on_node_asset_change
+from perms.utils import check_user_mapping_node_task
 from assets.models import Node
 from assets.api import SerializeToTreeNodeMixin
+from perms.exceptions import AdminIsModifyingPerm
+from orgs.utils import tmp_to_root_org
 
 logger = get_logger(__name__)
 
@@ -48,15 +52,10 @@ class UserGrantedNodeChildrenWithAssetsAsTreeApi(SerializeToTreeNodeMixin, ListA
     def list(self, request: Request, *args, **kwargs):
         user = request.user
         key = request.query_params.get('key')
-
-        to_update_nodes = UpdateMappingNodeTask.objects.filter(user=user).order_by('date_created')
-        if to_update_nodes:
-            to_delete = []
-            for task in to_update_nodes:
-                nodes = Node.objects.filter(id__in=task.node_pks)
-                on_node_asset_change(user, nodes, len(task.asset_pks), task.action)
-                to_delete.append(task.id)
-            UpdateMappingNodeTask.objects.filter(id__in=to_delete).delete()
+        try:
+            run_user_mapping_node_task(user)
+        except SomeoneIsDoingThis:
+            raise AdminIsModifyingPerm
 
         nodes = []
         assets = []
@@ -95,28 +94,25 @@ class UserGrantedNodeChildrenWithAssetsAsTreeApi(SerializeToTreeNodeMixin, ListA
 class UserGrantedNodeChildrenApi(SerializeToTreeNodeMixin, ListAPIView):
     permission_classes = ()
 
+    @tmp_to_root_org()
     def list(self, request: Request, *args, **kwargs):
+
         user = request.user
         key = request.query_params.get('key')
 
-        to_update_nodes = UpdateMappingNodeTask.objects.filter(user=user).order_by('date_created')
-        if to_update_nodes:
-            to_delete = []
-            for task in to_update_nodes:
-                nodes = Node.objects.filter(id__in=task.node_pks)
-                on_node_asset_change(user, nodes, len(task.asset_pks), task.action)
-                to_delete.append(task.id)
-            UpdateMappingNodeTask.objects.filter(id__in=to_delete).delete()
+        try:
+            check_user_mapping_node_task(user)
+        except SomeoneIsDoingThis:
+            raise AdminIsModifyingPerm
 
-        nodes = []
         if not key:
-            root_node = Node.objects.filter(
+            nodes = Node.objects.filter(
                 mapping_nodes__user=user,
-                mapping_nodes__granted_ref_count__gt=0
-            ).get(parent_key='')
-            nodes.append(root_node)
+                mapping_nodes__granted_ref_count__gt=0,
+                parent_key=''
+            )
         else:
-            mapping_node: MappingNode = get_object_or_none(
+            mapping_node = get_object_or_none(
                 MappingNode, user=user, key=key, granted_ref_count__gt=0)
             if mapping_node is None:
                 nodes = Node.objects.filter(parent_key=key)

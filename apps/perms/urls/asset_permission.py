@@ -2,6 +2,8 @@
 
 from django.urls import path, include
 from rest_framework_bulk.routes import BulkRouter
+from django.db.transaction import non_atomic_requests
+
 from .. import api
 
 router = BulkRouter()
@@ -38,7 +40,7 @@ user_permission_urlpatterns = [
 
     # Node children as tree
     path('<uuid:pk>/nodes/children/tree/', api.UserGrantedNodeChildrenAsTreeApi.as_view(), name='user-nodes-children-as-tree'),
-    path('nodes/children/tree/', api.UserGrantedNodeChildrenApi.as_view(), name='my-nodes-children-as-tree'),
+    path('nodes/children/tree/', non_atomic_requests(api.UserGrantedNodeChildrenApi.as_view()), name='my-nodes-children-as-tree'),
 
     # Node children with assets as tree
     path('<uuid:pk>/nodes/children-with-assets/tree/', api.UserGrantedNodeChildrenWithAssetsAsTreeApi.as_view(), name='user-nodes-children-with-assets-as-tree'),

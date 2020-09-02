@@ -6,6 +6,7 @@ from functools import reduce
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.db.models import Q
+from django.utils.decorators import method_decorator
 from rest_framework.generics import ListAPIView
 
 from common.permissions import IsOrgAdminOrAppUser, IsValidUser
@@ -16,6 +17,7 @@ from ... import serializers
 from .mixin import UserAssetPermissionMixin, UserAssetTreeMixin
 from perms.models import MappingNode
 from assets.models import Asset
+from orgs.utils import tmp_to_root_org
 
 
 logger = get_logger(__name__)
@@ -62,6 +64,7 @@ class UserGrantedAssetsAsTreeApi(UserAssetTreeMixin, UserGrantedAssetsApi):
     pass
 
 
+@method_decorator(tmp_to_root_org(), name='list')
 class UserGrantedNodeAssetsApi(ListAPIView):
     permission_classes = (IsValidUser,)
     serializer_class = serializers.AssetGrantedSerializer

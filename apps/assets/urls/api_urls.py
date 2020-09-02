@@ -2,6 +2,7 @@
 from django.urls import path, re_path
 from rest_framework_nested import routers
 from rest_framework_bulk.routes import BulkRouter
+from django.db.transaction import non_atomic_requests
 
 from common import api as capi
 
@@ -30,7 +31,7 @@ router.register(r'system-users-users-relations', api.SystemUserUserRelationViewS
 cmd_filter_router = routers.NestedDefaultRouter(router, r'cmd-filters', lookup='filter')
 cmd_filter_router.register(r'rules', api.CommandFilterRuleViewSet, 'cmd-filter-rule')
 
-from django.db.transaction import non_atomic_requests
+
 urlpatterns = [
     path('assets/<uuid:pk>/gateways/', api.AssetGatewayListApi.as_view(), name='asset-gateway-list'),
     path('assets/<uuid:pk>/platform/', api.AssetPlatformRetrieveApi.as_view(), name='asset-platform-detail'),

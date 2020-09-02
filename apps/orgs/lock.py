@@ -59,6 +59,10 @@ def acquire(key, value, timeout):
     return client.set(key, value, ex=timeout, nx=True)
 
 
+def get(key):
+    return client.get(key)
+
+
 def change_lock_state_to_commiting(key, doingvalue, commitingvalue, timeout=600):
     # 将锁的状态从 `doing` 切换到 `commiting`
     return bool(change_lock_state_to_commiting_lua_obj(keys=(key,), args=(doingvalue, commitingvalue, timeout)))

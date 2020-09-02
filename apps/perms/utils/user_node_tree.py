@@ -2,12 +2,21 @@ from itertools import chain
 from typing import List
 from functools import reduce
 from operator import or_
+from uuid import uuid4
+import threading
+from common.utils import get_logger
 
+from common.const.distributed_lock_key import UPDATE_MAPPING_NODE_TASK_LOCK_KEY
 from django.db.models import F, Count
 
+from common.utils.timezone import dt_formater, now
 from assets.models import Node
-from perms.models import MappingNode
+from django.db.transaction import atomic
+from orgs import lock
+from perms.models import MappingNode, UpdateMappingNodeTask
+from users.models import User
 
+logger = get_logger(__name__)
 
 ADD = 'add'
 REMOVE = 'remove'
@@ -202,3 +211,55 @@ def on_node_asset_change(user, nodes: List[Node], assets_amount, action):
     # 资产授权节点，祖先节点
     all_nodes = [*nodes, *key2ancestor_node_map.values()]
     update_mapping_nodes(keys, user, all_nodes, action)
+
+
+VALUE_TEMPLATE = '{stage}:{rand_str}:thread:{thread_name}:{thread_id}:{now}'
+
+
+def _generate_value(stage=lock.DOING):
+    cur_thread = threading.current_thread()
+
+    return VALUE_TEMPLATE.format(
+        stage=stage,
+        thread_name=cur_thread.name,
+        thread_id=cur_thread.ident,
+        now=dt_formater(now()),
+        rand_str=uuid4()
+    )
+
+
+def run_user_mapping_node_task(user: User):
+    key = UPDATE_MAPPING_NODE_TASK_LOCK_KEY.format(user_id=user.id)
+    doing_value = _generate_value()
+    commiting_value = _generate_value(stage=lock.COMMITING)
+
+    try:
+        locked = lock.acquire(key, doing_value, timeout=60)
+        if not locked:
+            raise lock.SomeoneIsDoingThis
+
+        with atomic(savepoint=False):
+            tasks = UpdateMappingNodeTask.objects.filter(user=user).order_by('date_created')
+            if tasks:
+                to_delete = []
+                for task in tasks:
+                    nodes = Node.objects.filter(id__in=task.node_pks)
+                    on_node_asset_change(user, nodes, len(task.asset_pks), task.action)
+                    to_delete.append(task.id)
+                UpdateMappingNodeTask.objects.filter(id__in=to_delete).delete()
+
+                ok = lock.change_lock_state_to_commiting(key, doing_value, commiting_value)
+                if not ok:
+                    logger.error(f'update_mapping_node_task_timeout for user: {user.id}')
+                    raise lock.Timeout
+    finally:
+        lock.release(key, commiting_value, doing_value)
+
+
+def check_user_mapping_node_task(user: User, run=True):
+    if UpdateMappingNodeTask.objects.filter(user=user).exists():
+        if run:
+            run_user_mapping_node_task(user)
+            return True
+        return False
+    return True

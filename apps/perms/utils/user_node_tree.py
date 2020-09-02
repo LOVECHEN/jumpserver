@@ -256,10 +256,12 @@ def run_user_mapping_node_task(user: User):
         lock.release(key, commiting_value, doing_value)
 
 
-def check_user_mapping_node_task(user: User, run=True):
+def check_user_mapping_node_task(user: User):
     if UpdateMappingNodeTask.objects.filter(user=user).exists():
-        if run:
-            run_user_mapping_node_task(user)
-            return True
+        run_user_mapping_node_task(user)
+
+
+def check_mapping_node_task():
+    if UpdateMappingNodeTask.objects.exists():
         return False
     return True

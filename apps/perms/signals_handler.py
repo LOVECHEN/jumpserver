@@ -9,12 +9,14 @@ from django.db import transaction
 from django.db.models import Q, F
 
 from perms.async_tasks.mapping_node_task import submit_update_mapping_node_task
+from perms.utils.user_node_tree import check_mapping_node_task
 from users.models import User
 from assets.models import Node, Asset
 from common.utils import get_logger
-from common.const.signals import POST_ADD, POST_REMOVE, PRE_CLEAR
+from common.const.signals import POST_ADD, POST_REMOVE, PRE_CLEAR, PRE_REMOVE, POST_CLEAR
 from .models import AssetPermission, RemoteAppPermission, UpdateMappingNodeTask
-from .utils import update_users_tree_for_perm_change, ADD, REMOVE, on_node_asset_change
+from .utils import update_users_tree_for_perm_change, ADD, REMOVE
+from perms.exceptions import CanNotRemoveAssetPermNow
 
 
 logger = get_logger(__file__)
@@ -25,6 +27,9 @@ logger = get_logger(__file__)
 
 @receiver([pre_delete], sender=AssetPermission)
 def on_permission_change(instance, **kwargs):
+    if not check_mapping_node_task():
+        submit_update_mapping_node_task()
+        raise CanNotRemoveAssetPermNow
     nodes = list(instance.nodes.all())
     assets = list(instance.assets.all())
     user_ap_query_name = AssetPermission.users.field.related_query_name()
@@ -70,6 +75,14 @@ def on_permission_nodes_changed(sender, instance, action, reverse, **kwargs):
     system_users = instance.system_users.all()
     for system_user in system_users:
         system_user.nodes.add(*tuple(nodes))
+
+
+@receiver(m2m_changed, sender=AssetPermission.assets.through)
+def can_remove(action, **kwargs):
+    if action in (PRE_CLEAR, PRE_REMOVE, POST_REMOVE, POST_CLEAR):
+        if not check_mapping_node_task():
+            submit_update_mapping_node_task()
+            raise CanNotRemoveAssetPermNow
 
 
 @receiver(m2m_changed, sender=AssetPermission.assets.through)

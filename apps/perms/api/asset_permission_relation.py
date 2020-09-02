@@ -5,6 +5,7 @@ from django.db.models import F, Value
 from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404
 
+from orgs.mixins.api import OrgRelationMixin
 from orgs.mixins.api import OrgBulkModelViewSet
 from orgs.utils import current_org
 from common.permissions import IsOrgAdmin
@@ -19,9 +20,9 @@ __all__ = [
 ]
 
 
-class RelationMixin(OrgBulkModelViewSet):
+class RelationMixin(OrgRelationMixin, OrgBulkModelViewSet):
     def get_queryset(self):
-        queryset = self.model.objects.all()
+        queryset = super().get_queryset()
         org_id = current_org.org_id()
         if org_id is not None:
             queryset = queryset.filter(assetpermission__org_id=org_id)
@@ -78,7 +79,7 @@ class AssetPermissionUserGroupRelationViewSet(RelationMixin):
 
 class AssetPermissionAssetRelationViewSet(RelationMixin):
     serializer_class = serializers.AssetPermissionAssetRelationSerializer
-    model = models.AssetPermission.assets.through
+    m2m_field = models.AssetPermission.assets.field
     permission_classes = (IsOrgAdmin,)
     filter_fields = [
         'id', 'asset', 'assetpermission',

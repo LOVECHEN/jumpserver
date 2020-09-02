@@ -34,10 +34,6 @@ user_permission_urlpatterns = [
     path('<uuid:pk>/nodes/tree/', api.UserGrantedNodesAsTreeApi.as_view(), name='user-nodes-as-tree'),
     path('nodes/tree/', api.UserGrantedNodesAsTreeApi.as_view(), name='my-nodes-as-tree'),
 
-    # Node with assets as tree
-    path('<uuid:pk>/nodes-with-assets/tree/', api.UserGrantedNodesWithAssetsAsTreeApi.as_view(), name='user-nodes-with-assets-as-tree'),
-    path('nodes-with-assets/tree/', api.UserGrantedNodesWithAssetsAsTreeApi.as_view(), name='my-nodes-with-assets-as-tree'),
-
     # Node children as tree
     path('<uuid:pk>/nodes/children/tree/', api.UserGrantedNodeChildrenAsTreeApi.as_view(), name='user-nodes-children-as-tree'),
     path('nodes/children/tree/', non_atomic_requests(api.UserGrantedNodeChildrenApi.as_view()), name='my-nodes-children-as-tree'),

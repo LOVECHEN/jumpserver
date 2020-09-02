@@ -77,15 +77,9 @@ class UserGrantedNodeChildrenApi(UserGrantedNodesForAdminApi):
 
     def get_queryset(self):
         if self.node:
-            children = self.tree.children(self.node.key)
+            queryset = Node.objects.filter(parent_key=self.node.key)
         else:
-            children = self.tree.children(self.tree.root)
-            # 默认打开组织节点下的节点
-            self.root_keys = [child.identifier for child in children]
-            for key in self.root_keys:
-                children.extend(self.tree.children(key))
-        node_keys = [n.identifier for n in children]
-        queryset = Node.objects.filter(key__in=node_keys)
+            queryset = Node.objects.filter(parent_key='')
         return queryset
 
 

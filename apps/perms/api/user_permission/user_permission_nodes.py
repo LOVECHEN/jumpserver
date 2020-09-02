@@ -2,6 +2,7 @@
 #
 
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
 from rest_framework.generics import (
     ListAPIView, get_object_or_404
 )
@@ -38,7 +39,10 @@ class UserGrantedNodesForAdminApi(ListAPIView):
 
     def get_queryset(self):
         user = self.get_user()
-        queryset = Node.objects.filter(granted_by_permissions__users=user).distinct().only(
+        queryset = Node.objects.filter(
+            Q(granted_by_permissions__users=user) |
+            Q(granted_by_permissions__user_groups__users=user)
+        ).distinct().only(
             *self.nodes_only_fields
         )
         return queryset

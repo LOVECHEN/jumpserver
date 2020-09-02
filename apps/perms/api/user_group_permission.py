@@ -15,7 +15,7 @@ __all__ = [
 ]
 
 
-class UserGroupGrantedAssetsApi(UserGroupPermissionMixin, uapi.UserGrantedAssetsApi):
+class UserGroupGrantedAssetsApi(UserGroupPermissionMixin, uapi.UserGrantedAssetsForAdminApi):
     pass
 
 

@@ -15,8 +15,8 @@ router.register('asset-permissions-nodes-relations', api.AssetPermissionNodeRela
 router.register('asset-permissions-system-users-relations', api.AssetPermissionSystemUserRelationViewSet, 'asset-permissions-system-users-relation')
 
 user_permission_urlpatterns = [
-    path('<uuid:pk>/assets/', api.UserGrantedAssetsApi.as_view(), name='user-assets'),
-    path('assets/', api.UserGrantedAssetsApi.as_view(), name='my-assets'),
+    path('<uuid:pk>/assets/', api.UserGrantedAssetsForAdminApi.as_view(), name='user-assets'),
+    path('assets/', api.UserGrantedAssetsForUserApi.as_view(), name='my-assets'),
 
     # Assets as tree
     path('<uuid:pk>/assets/tree/', api.UserGrantedAssetsAsTreeApi.as_view(), name='user-assets-as-tree'),

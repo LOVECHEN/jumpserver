@@ -3,12 +3,11 @@
 from operator import or_
 from functools import reduce
 
-from django.shortcuts import get_object_or_404
-from django.conf import settings
 from django.db.models import Q
 from django.utils.decorators import method_decorator
 from rest_framework.generics import ListAPIView
 
+from users.models import User
 from common.permissions import IsOrgAdminOrAppUser, IsValidUser
 from common.utils import get_logger
 from common.utils.django import get_object_or_none
@@ -23,44 +22,40 @@ from orgs.utils import tmp_to_root_org
 logger = get_logger(__name__)
 
 __all__ = [
-    'UserGrantedAssetsApi', 'UserGrantedAssetsAsTreeApi',
-    'UserGrantedNodeAssetsApi',
+    'UserGrantedAssetsForAdminApi', 'UserGrantedAssetsAsTreeApi',
+    'UserGrantedNodeAssetsApi', 'UserGrantedAssetsForUserApi'
 ]
 
 
-class UserGrantedAssetsApi(UserAssetPermissionMixin, ListAPIView):
+class UserGrantedAssetsForAdminApi(ListAPIView):
     permission_classes = (IsOrgAdminOrAppUser,)
     serializer_class = serializers.AssetGrantedSerializer
     only_fields = serializers.AssetGrantedSerializer.Meta.only_fields
     filter_fields = ['hostname', 'ip', 'id', 'comment']
     search_fields = ['hostname', 'ip', 'comment']
 
-    def filter_by_nodes(self, queryset):
-        node_id = self.request.query_params.get("node")
-        if not node_id:
-            return queryset
-        node = get_object_or_404(Node, pk=node_id)
-        query_all = self.request.query_params.get("all", "0") in ["1", "true"]
-        if query_all:
-            pattern = '^{0}$|^{0}:'.format(node.key)
-            queryset = queryset.filter(nodes__key__regex=pattern).distinct()
-        else:
-            queryset = queryset.filter(nodes=node)
-        return queryset
-
-    def filter_queryset(self, queryset):
-        queryset = super().filter_queryset(queryset)
-        queryset = self.filter_by_nodes(queryset)
-        return queryset
+    def get_user(self):
+        return User.objects.get(id=self.kwargs.get('pk'))
 
     def get_queryset(self):
-        queryset = self.util.get_assets().only(*self.only_fields).order_by(
-            settings.TERMINAL_ASSET_LIST_SORT_BY
+        user = self.get_user()
+
+        return Asset.objects.filter(
+            Q(granted_by_permissions__users=user) |
+            Q(granted_by_permissions__user_groups__users=user)
+        ).distinct().only(
+            *self.only_fields
         )
-        return queryset
 
 
-class UserGrantedAssetsAsTreeApi(UserAssetTreeMixin, UserGrantedAssetsApi):
+class UserGrantedAssetsForUserApi(UserGrantedAssetsForAdminApi):
+    permission_classes = (IsValidUser,)
+
+    def get_user(self):
+        return self.request.user
+
+
+class UserGrantedAssetsAsTreeApi(UserAssetTreeMixin, UserGrantedAssetsForAdminApi):
     pass
 
 

@@ -177,6 +177,10 @@ def update_users_tree_for_perm_change(users,
 
 
 def on_node_asset_change(user, nodes: List[Node], assets_amount, action):
+    """
+    当用户被授权的资产被移动后，更新自己的授权树
+    """
+
     for node in nodes:
         setattr(node, TMP_ASSET_GRANTED_REF_COUNT_FIELD, assets_amount)
         setattr(node, TMP_GRANTED_REF_COUNT_FIELD, assets_amount)

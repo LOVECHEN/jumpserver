@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 #
-from django.db.models import Q
 from rest_framework.generics import ListAPIView
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -13,7 +12,7 @@ from .user_permission_nodes import UserGrantedNodesAsTreeApi
 from .user_permission_nodes import UserGrantedNodeChildrenAsTreeApi
 from perms.models import MappingNode, UpdateMappingNodeTask
 from perms.utils.user_node_tree import on_node_asset_change
-from assets.models import Node, Asset
+from assets.models import Node
 from assets.api import SerializeToTreeNodeMixin
 
 logger = get_logger(__name__)

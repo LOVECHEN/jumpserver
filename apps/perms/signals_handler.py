@@ -3,10 +3,12 @@
 from collections import defaultdict
 from itertools import chain
 
-from django.db.models.signals import m2m_changed, post_save, post_delete, pre_delete
+from django.db.models.signals import m2m_changed, pre_delete
 from django.dispatch import receiver
+from django.db import transaction
 from django.db.models import Q, F
 
+from perms.async_tasks.mapping_node_task import submit_update_mapping_node_task
 from users.models import User
 from assets.models import Node, Asset
 from common.utils import get_logger
@@ -242,7 +244,7 @@ def on_remoteapps_permission_user_groups_changed(sender, instance=None, action='
 
 
 @receiver(m2m_changed, sender=Asset.nodes.through)
-def update_nodes_assets_amount(action, instance, reverse, pk_set, **kwargs):
+def on_node_asset_change(action, instance, reverse, pk_set, **kwargs):
     # 不允许 `pre_clear` ，因为该信号没有 `pk_set`
     # [官网](https://docs.djangoproject.com/en/3.1/ref/signals/#m2m-changed)
     refused = (PRE_CLEAR,)
@@ -289,3 +291,4 @@ def update_nodes_assets_amount(action, instance, reverse, pk_set, **kwargs):
             ))
 
     UpdateMappingNodeTask.objects.bulk_create(to_create)
+    transaction.on_commit(submit_update_mapping_node_task)

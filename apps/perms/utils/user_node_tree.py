@@ -4,13 +4,15 @@ from functools import reduce
 from operator import or_
 from uuid import uuid4
 import threading
+
+from django.db.models import F, Count, Q
+
 from common.utils import get_logger
-
+from common.utils.django import get_object_or_none
 from common.const.distributed_lock_key import UPDATE_MAPPING_NODE_TASK_LOCK_KEY
-from django.db.models import F, Count
-
+from orgs.utils import tmp_to_root_org
 from common.utils.timezone import dt_formater, now
-from assets.models import Node
+from assets.models import Node, Asset
 from django.db.transaction import atomic
 from orgs import lock
 from perms.models import MappingNode, UpdateMappingNodeTask
@@ -27,9 +29,61 @@ TMP_ASSET_GRANTED_REF_COUNT_FIELD = '_asset_granted_ref_count'
 TMP_GRANTED_REF_COUNT_FIELD = '_granted_ref_count'
 
 
+def print_attrs(mapping_node, node):
+    tmp_fields = (
+        TMP_ASSET_GRANTED_REF_COUNT_FIELD,
+        TMP_GRANTED_REF_COUNT_FIELD,
+        TMP_GRANTED_FIELD
+    )
+    fields = (f[1:] for f in tmp_fields)
+    values1 = [getattr(mapping_node, field, 0) for field in fields]
+    values2 = [getattr(node, field, 0) for field in tmp_fields]
+    print(f'''compare values:
+    valuse1 {values1}
+    values2 {values2}
+    ''')
+
+
+def is_equal(mapping_node, node):
+    tmp_fields = (
+        TMP_ASSET_GRANTED_REF_COUNT_FIELD,
+        TMP_GRANTED_REF_COUNT_FIELD,
+        TMP_GRANTED_FIELD
+    )
+    fields = (f[1:] for f in tmp_fields)
+
+    values1 = [getattr(node, field, 0) for field in tmp_fields]
+    values2 = [getattr(mapping_node, field, 0) for field in fields]
+
+    return all(v1 == v2 for v1, v2 in zip(values1, values2))
+
+
 def obj_field_add(obj, field, value=1):
     new_value = getattr(obj, field, 0) + value
     setattr(obj, field, new_value)
+
+
+def add_tmp_attrs(obj1, obj2, with_granted=False):
+    """
+    obj1 <- obj2
+    """
+    _asset_granted_ref_count = getattr(obj2, TMP_ASSET_GRANTED_REF_COUNT_FIELD, 0)
+    _granted_ref_count = getattr(obj2, TMP_GRANTED_REF_COUNT_FIELD, 0)
+
+    inc_tmp_granted_ref_count(obj1, _granted_ref_count)
+    inc_tmp_asset_granted_ref_count(obj1, _asset_granted_ref_count)
+
+    if with_granted:
+        _granted = getattr(obj2, TMP_GRANTED_FIELD, False)
+        if _granted:
+            set_tmp_granted(obj1)
+
+
+def set_tmp_granted(obj):
+    _granted = getattr(obj, TMP_GRANTED_FIELD, False)
+    if _granted:
+        raise ValueError(f'{obj} repeat authorization')
+    setattr(obj, TMP_GRANTED_FIELD, True)
 
 
 def inc_tmp_granted_ref_count(obj, value=1):
@@ -265,3 +319,86 @@ def check_mapping_node_task():
     if UpdateMappingNodeTask.objects.exists():
         return False
     return True
+
+
+@tmp_to_root_org()
+def compute_tmp_mapping_node_from_perm(user: User):
+    print(f'checking............. {user}')
+    errors = []
+    nodes = Node.objects.filter(
+        Q(granted_by_permissions__users=user) | 
+        Q(granted_by_permissions__user_groups__users=user)
+    ).distinct()
+
+    assets = Asset.objects.filter(
+        Q(granted_by_permissions__users=user) |
+        Q(granted_by_permissions__user_groups__users=user)
+    ).distinct()
+
+    leaf_nodes = []
+
+    for node in nodes:
+        inc_tmp_granted_ref_count(node)
+        set_tmp_granted(node)
+        leaf_nodes.append(node)
+
+    for asset in assets:
+        _nodes = asset.nodes.all()
+        for node in _nodes:
+            inc_tmp_asset_granted_ref_count(node)
+            inc_tmp_granted_ref_count(node)
+            leaf_nodes.append(node)
+
+    all_ancestor_node_keys = set()
+    for node in leaf_nodes:
+        all_ancestor_node_keys.update(node.get_ancestor_keys())
+
+    ancestor_nodes = list(Node.objects.filter(key__in=all_ancestor_node_keys))
+    key2ancestor_nodes_mapper = {node.key: node for node in ancestor_nodes}
+
+    for node in leaf_nodes:
+        keys = node.get_ancestor_keys()
+        _granted_ref_count = getattr(node, TMP_GRANTED_REF_COUNT_FIELD, 0)
+        for key in keys:
+            ancestor_node = key2ancestor_nodes_mapper[key]
+            inc_tmp_granted_ref_count(
+                ancestor_node,
+                _granted_ref_count
+            )
+
+    key2nodes_mapper = {}
+    for node in chain(leaf_nodes, ancestor_nodes):
+        if node.key in key2nodes_mapper:
+            dst_node = key2nodes_mapper[node.key]
+            add_tmp_attrs(dst_node, node, with_granted=True)
+        else:
+            key2nodes_mapper[node.key] = node
+    return key2nodes_mapper
+
+
+def check_mapping_nodes(key2nodes_mapper):
+    errors = []
+    for key, node in key2nodes_mapper.items():
+        mapping_node = get_object_or_none(MappingNode, key=key)
+        if mapping_node is None:
+            print_attrs(mapping_node, node)
+            errors.append((mapping_node, node, 'not found'))
+        elif not is_equal(mapping_node, node):
+            print_attrs(mapping_node, node)
+            errors.append((mapping_node, node, 'not equal'))
+    return errors
+
+
+def check_all_users():
+    users = User.objects.all()
+    for user in users:
+        key2nodes_mapper = compute_tmp_mapping_node_from_perm(user)
+        check_mapping_nodes(key2nodes_mapper)
+
+
+@tmp_to_root_org()
+def migrate_perms2mapping_node():
+    users = User.objects.all()
+    for user in users:
+        key2nodes_mapper = compute_tmp_mapping_node_from_perm(user)
+        update_mapping_nodes(key2nodes_mapper.keys(), user, key2nodes_mapper.values(), ADD)

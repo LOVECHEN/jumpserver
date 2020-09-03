@@ -49,6 +49,7 @@ class UserGrantedAssetsForAdminApi(ListAPIView):
         )
 
 
+@method_decorator(tmp_to_root_org(), name='list')
 class UserGrantedAssetsForUserApi(UserGrantedAssetsForAdminApi):
     permission_classes = (IsValidUser,)
 
@@ -56,7 +57,8 @@ class UserGrantedAssetsForUserApi(UserGrantedAssetsForAdminApi):
         return self.request.user
 
 
-class UserGrantedAssetsAsTreeApi(UserAssetTreeMixin, UserGrantedAssetsForAdminApi):
+@method_decorator(tmp_to_root_org(), name='list')
+class UserGrantedAssetsAsTreeApi(UserAssetTreeMixin, UserGrantedAssetsForUserApi):
     pass
 
 
@@ -87,6 +89,7 @@ class UserGrantedNodeAssetsApi(DispatchUserGrantedNodeMixin, ListAPIView):
         user = self.request.user
         assets = Asset.objects.none()
 
+        # 查询该节点下的授权节点
         granted_mapping_nodes = MappingNode.objects.filter(
             user=user,
             granted=True,
@@ -94,11 +97,13 @@ class UserGrantedNodeAssetsApi(DispatchUserGrantedNodeMixin, ListAPIView):
             key__startswith=f'{node.key}:',
         )
 
+        # 根据授权节点构建查询
         granted_nodes_qs = []
         for node in granted_mapping_nodes:
             granted_nodes_qs.append(Q(nodes__key__startswith=f'{node.key}:'))
             granted_nodes_qs.append(Q(nodes__key=node.key))
 
+        # 查询该节点下的资产授权节点
         only_asset_granted_mapping_nodes = MappingNode.objects.filter(
             user=user,
             granted=False,
@@ -106,10 +111,12 @@ class UserGrantedNodeAssetsApi(DispatchUserGrantedNodeMixin, ListAPIView):
             key__startswith=f'{node.key}:',
         )
 
+        # 根据资产授权节点构建查询
         only_asset_granted_nodes_qs = []
         for node in only_asset_granted_mapping_nodes:
             only_asset_granted_nodes_qs.append(Q(nodes__id=node.node_id))
 
+        # 判断当前节点有没有授权资产
         if mapping_node.asset_granted_ref_count > 0:
             only_asset_granted_nodes_qs.append(Q(nodes__id=node.id))
 

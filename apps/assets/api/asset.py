@@ -1,23 +1,20 @@
 # -*- coding: utf-8 -*-
 #
-
+from assets.api import FilterAssetByNodeMixin
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.generics import RetrieveAPIView
 from django.shortcuts import get_object_or_404
 
-from common.utils import dict_get_any, is_uuid
 from common.utils import get_logger, get_object_or_none
-from common.utils.common import lazyproperty
 from common.permissions import IsOrgAdmin, IsOrgAdminOrAppUser, IsSuperUser
 from orgs.mixins.api import OrgBulkModelViewSet
 from orgs.mixins import generics
 from ..models import Asset, Node, Platform
 from .. import serializers
-from ..pagination import AssetLimitOffsetPagination
 from ..tasks import (
     update_asset_hardware_info_manual, test_asset_connectivity_manual
 )
-from ..filters import AssetByNodeFilterBackend, LabelFilterBackend, IpInFilterBackend
+from ..filters import FilterAssetByNodeFilterBackend, LabelFilterBackend, IpInFilterBackend
 
 
 logger = get_logger(__file__)
@@ -26,31 +23,6 @@ __all__ = [
     'AssetGatewayListApi', 'AssetPlatformViewSet',
     'AssetTaskCreateApi',
 ]
-
-
-class FilterAssetByNodeMixin:
-    pagination_class = AssetLimitOffsetPagination
-
-    @lazyproperty
-    def is_query_node_all_assets(self):
-        request = self.request
-        query_all_arg = request.query_params.get('all')
-        show_current_asset_arg = request.query_params.get('show_current_asset')
-        if show_current_asset_arg is not None:
-            return show_current_asset_arg != '1'
-        return query_all_arg == '1'
-
-    @lazyproperty
-    def node(self):
-        node_id = dict_get_any(self.request.query_params, ['node', 'node_id'])
-        if not node_id:
-            return None
-
-        if is_uuid(node_id):
-            node = get_object_or_none(Node, id=node_id)
-        else:
-            node = get_object_or_none(Node, key=node_id)
-        return node
 
 
 class AssetViewSet(FilterAssetByNodeMixin, OrgBulkModelViewSet):
@@ -69,7 +41,7 @@ class AssetViewSet(FilterAssetByNodeMixin, OrgBulkModelViewSet):
         'display': serializers.AssetDisplaySerializer,
     }
     permission_classes = (IsOrgAdminOrAppUser,)
-    extra_filter_backends = [AssetByNodeFilterBackend, LabelFilterBackend, IpInFilterBackend]
+    extra_filter_backends = [FilterAssetByNodeFilterBackend, LabelFilterBackend, IpInFilterBackend]
 
     def set_assets_node(self, assets):
         if not isinstance(assets, list):

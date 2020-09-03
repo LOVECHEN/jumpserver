@@ -5,10 +5,66 @@ from rest_framework.compat import coreapi, coreschema
 from rest_framework import filters
 from django.db.models import Q
 
+from common.utils import dict_get_any, is_uuid, get_object_or_none
 from .models import Label
+from assets.models import Node
 
 
 class AssetByNodeFilterBackend(filters.BaseFilterBackend):
+    fields = ['node', 'all']
+
+    def get_schema_fields(self, view):
+        return [
+            coreapi.Field(
+                name=field, location='query', required=False,
+                type='string', example='', description='', schema=None,
+            )
+            for field in self.fields
+        ]
+
+    @staticmethod
+    def is_query_all(request):
+        query_all_arg = request.query_params.get('all')
+        show_current_asset_arg = request.query_params.get('show_current_asset')
+
+        query_all = query_all_arg == '1'
+        if show_current_asset_arg is not None:
+            query_all = show_current_asset_arg != '1'
+        return query_all
+
+    @staticmethod
+    def get_query_node(request):
+        node_id = dict_get_any(request.query_params, ['node', 'node_id'])
+        if not node_id:
+            return None, False
+
+        if is_uuid(node_id):
+            node = get_object_or_none(Node, id=node_id)
+        else:
+            node = get_object_or_none(Node, key=node_id)
+        return node, True
+
+    def filter_queryset(self, request, queryset, view):
+        node, has_query_arg = self.get_query_node(request)
+        if not has_query_arg:
+            return queryset
+
+        if node is None:
+            return queryset
+        query_all = self.is_query_all(request)
+        if query_all:
+            return queryset.filter(
+                Q(nodes__key__istartswith=f'{node.key}:') |
+                Q(nodes__key=node.key)
+            ).distinct()
+        else:
+            return queryset.filter(nodes__key=node.key).distinct()
+
+
+class FilterAssetByNodeFilterBackend(filters.BaseFilterBackend):
+    """
+    需要与 `assets.api.mixin.FilterAssetByNodeMixin` 配合使用
+    """
     fields = ['node', 'all']
 
     def get_schema_fields(self, view):

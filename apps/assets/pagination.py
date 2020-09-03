@@ -5,6 +5,9 @@ from assets.models import Node
 
 
 class AssetLimitOffsetPagination(LimitOffsetPagination):
+    """
+    需要与 `assets.api.mixin.FilterAssetByNodeMixin` 配合使用
+    """
     def get_count(self, queryset):
         """
         1. 如果查询节点下的所有资产，那 count 使用 Node.assets_amount

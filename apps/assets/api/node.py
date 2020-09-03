@@ -33,7 +33,7 @@ from .mixin import SerializeToTreeNodeMixin
 logger = get_logger(__file__)
 __all__ = [
     'NodeViewSet', 'NodeChildrenApi', 'NodeAssetsApi',
-    'NodeAddAssetsApi', 'NodeRemoveAssetsApi', 'NodeReplaceAssetsApi',
+    'NodeAddAssetsApi', 'NodeRemoveAssetsApi', 'MoveAssetsToNodeApi',
     'NodeAddChildrenApi', 'NodeListAsTreeApi',
     'NodeChildrenAsTreeApi',
     'NodeTaskCreateApi',
@@ -244,7 +244,7 @@ class NodeRemoveAssetsApi(generics.UpdateAPIView):
 
 @method_decorator(org_level_transaction_lock(UPDATE_NODE_TREE_LOCK_KEY), name='patch')
 @method_decorator(org_level_transaction_lock(UPDATE_NODE_TREE_LOCK_KEY), name='put')
-class NodeReplaceAssetsApi(generics.UpdateAPIView):
+class MoveAssetsToNodeApi(generics.UpdateAPIView):
     model = Node
     serializer_class = serializers.NodeAssetsSerializer
     permission_classes = (IsOrgAdmin,)

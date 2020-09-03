@@ -27,6 +27,7 @@ REMOVE = 'remove'
 TMP_GRANTED_FIELD = '_granted'
 TMP_ASSET_GRANTED_REF_COUNT_FIELD = '_asset_granted_ref_count'
 TMP_GRANTED_REF_COUNT_FIELD = '_granted_ref_count'
+TMP_NODE_GRANTED_REF_COUNT_FIELD = '_node_granted_ref_count'
 
 
 def print_attrs(mapping_node, node):
@@ -94,7 +95,7 @@ def inc_tmp_asset_granted_ref_count(obj, value=1):
     obj_field_add(obj, TMP_ASSET_GRANTED_REF_COUNT_FIELD, value)
 
 
-def update_mapping_nodes(mapping_node_keys, user, nodes: List[Node], action):
+def update_mapping_nodes(mapping_node_keys, user: User, nodes: List[Node], action: str):
     """
     给定一组 node ，更新或者创建对应的 MappingNode。更新的值包括
         - granted

@@ -182,6 +182,7 @@ class MappingNode(FamilyMixin, models.JMSBaseModel):
     key = models.CharField(max_length=64, verbose_name=_("Key"), db_index=True)  # '1:1:1:1'
     user = models.ForeignKey('users.User', db_constraint=False, on_delete=models.CASCADE)
     granted = models.BooleanField(default=False, db_index=True)
+    node_granted_ref_count = models.IntegerField(default=0)
     granted_ref_count = models.IntegerField(default=0)
     asset_granted_ref_count = models.IntegerField(default=0)
     parent_key = models.CharField(max_length=64, default='', verbose_name=_('Parent key'), db_index=True)  # '1:1:1:1'

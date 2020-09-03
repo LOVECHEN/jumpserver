@@ -13,6 +13,7 @@ from perms.utils.user_node_tree import check_mapping_node_task
 from users.models import User
 from assets.models import Node, Asset
 from common.utils import get_logger
+from common.exceptions import M2MReverseNotAllowed
 from common.const.signals import POST_ADD, POST_REMOVE, PRE_CLEAR, PRE_REMOVE, POST_CLEAR
 from .models import AssetPermission, RemoteAppPermission, UpdateMappingNodeTask
 from .utils import update_users_tree_for_perm_change, ADD, REMOVE
@@ -26,7 +27,7 @@ logger = get_logger(__file__)
 
 
 @receiver([pre_delete], sender=AssetPermission)
-def on_permission_change(instance, **kwargs):
+def on_asset_permission_delete(instance, **kwargs):
     if not check_mapping_node_task():
         submit_update_mapping_node_task()
         raise CanNotRemoveAssetPermNow
@@ -68,8 +69,10 @@ def on_permission_nodes_changed(sender, instance, action, reverse, **kwargs):
     if _action:
         update_users_tree_for_perm_change(users, nodes=nodes, action=_action)
 
-    if action != POST_ADD and reverse:
+    if action != POST_ADD:
         return
+    if reverse:
+        raise M2MReverseNotAllowed
     logger.debug("Asset permission nodes change signal received")
     nodes = kwargs['model'].objects.filter(pk__in=pk_set)
     system_users = instance.system_users.all()
@@ -264,12 +267,12 @@ def on_node_asset_change(action, instance, reverse, pk_set, **kwargs):
     if action in refused:
         raise ValueError
 
-    mapper = {
+    action_mapper = {
         POST_REMOVE: REMOVE,
         POST_ADD: ADD
     }
 
-    if action not in mapper:
+    if action not in action_mapper:
         return
 
     if reverse:
@@ -300,7 +303,7 @@ def on_node_asset_change(action, instance, reverse, pk_set, **kwargs):
                 user_id=user_id,
                 node_pks=node_pks,
                 asset_pks=asset_pks,
-                action=mapper[action],
+                action=action_mapper[action],
             ))
 
     UpdateMappingNodeTask.objects.bulk_create(to_create)

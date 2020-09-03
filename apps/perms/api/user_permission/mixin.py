@@ -90,7 +90,6 @@ class UserAssetTreeMixin:
 class DispatchUserGrantedNodeMixin:
 
     def dispatch_node_process(self, key, mapping_node: MappingNode, node: Node = None):
-        queryset = Model.objects.none()
         if mapping_node is None:
             ancestor_keys = Node.get_node_ancestor_keys(key)
             granted = MappingNode.objects.filter(key__in=ancestor_keys, granted=True).exists()
@@ -102,11 +101,11 @@ class DispatchUserGrantedNodeMixin:
                 # granted_node
                 queryset = self.on_granted_node(key, mapping_node, node)
             else:
-                self.on_ungranted_node(key, mapping_node, node)
+                queryset = self.on_ungranted_node(key, mapping_node, node)
         return queryset
 
     def on_granted_node(self, key, mapping_node: MappingNode, node: Node = None):
-        return Model.objects.none()
+        raise NotImplementedError
 
     def on_ungranted_node(self, key, mapping_node: MappingNode, node: Node = None):
-        return Model.objects.none()
+        raise NotImplementedError

@@ -77,7 +77,7 @@ class UserGrantedNodeAssetsApi(DispatchUserGrantedNodeMixin, ListAPIView):
         mapping_node: MappingNode = get_object_or_none(
             MappingNode, user=user, node_id=node_id, granted_ref_count__gt=0)
         node = Node.objects.get(id=node_id)
-        return self.dispatch_node_process(node, mapping_node)
+        return self.dispatch_node_process(node.key, mapping_node, node)
 
     def on_granted_node(self, key, mapping_node: MappingNode, node: Node = None):
         return Asset.objects.filter(

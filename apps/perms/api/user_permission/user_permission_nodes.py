@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 #
+from itertools import chain
 
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
@@ -41,22 +42,33 @@ class UserGrantedNodesForAdminApi(ListAPIView):
         user = self.get_user()
 
         # 查询所有直接授权或者资产授权的节点
-        queryset = Node.objects.filter(
+        queryset_by_user = Node.objects.filter(
             Q(granted_by_permissions__users=user) |
-            Q(granted_by_permissions__user_groups__users=user) |
-            Q(assets__granted_by_permissions__users=user) |
-            Q(assets__granted_by_permissions__user_groups__users=user)
-        )
-        # 计算以上节点的祖先节点 key
-        ancestor_keys = set()
-        leaf_keys = set(queryset.all().values_list('key', flat=True))
-        for key in leaf_keys:
-            ancestor_keys.update(Node.get_node_ancestor_keys(key))
-        queryset |= Node.objects.filter(key__in=ancestor_keys)
-        queryset = queryset.distinct().only(
+            Q(granted_by_permissions__user_groups__users=user)
+        ).distinct().only(
             *self.nodes_only_fields
         )
-        return queryset
+
+        queryset_by_group = Node.objects.filter(
+            Q(assets__granted_by_permissions__users=user) |
+            Q(assets__granted_by_permissions__user_groups__users=user)
+        ).distinct().only(
+            *self.nodes_only_fields
+        )
+
+        leaf_nodes = [*queryset_by_user, *queryset_by_group]
+        # 计算以上节点的祖先节点 key
+        ancestor_keys = set()
+        for node in leaf_nodes:
+            ancestor_keys.update(node.get_ancestor_keys())
+        ancestor_nodes = Node.objects.filter(key__in=ancestor_keys)
+        nodes = []
+        exist_keys = set()
+        for node in chain(leaf_nodes, ancestor_nodes):
+            if node.key not in exist_keys:
+                exist_keys.add(node.key)
+                nodes.append(node)
+        return nodes
 
 
 class UserGrantedNodesForUserApi(UserGrantedNodesForAdminApi):

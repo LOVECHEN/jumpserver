@@ -52,7 +52,10 @@ class AssetByNodeFilterBackend(filters.BaseFilterBackend):
             return queryset
         query_all = self.is_query_all(request)
         if query_all:
-            return queryset.filter(Q(nodes__key__istartswith=f'{node.key}:') | Q(nodes__key=node.key)).distinct()
+            return queryset.filter(
+                Q(nodes__key__istartswith=f'{node.key}:') |
+                Q(nodes__key=node.key)
+            ).distinct()
         else:
             return queryset.filter(nodes__key=node.key).distinct()
 

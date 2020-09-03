@@ -28,3 +28,8 @@ class SomeoneIsDoingThis(JMSException):
 class Timeout(JMSException):
     status_code = status.HTTP_408_REQUEST_TIMEOUT
     default_detail = _('Your request timeout')
+
+
+class M2MReverseNotAllowed(JMSException):
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_detail = _('M2M reverse not allowed')

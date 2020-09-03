@@ -9,6 +9,7 @@ from django.db.models.signals import (
 from django.db.models import Q, F
 from django.dispatch import receiver
 
+from common.exceptions import M2MReverseNotAllowed
 from common.const.signals import PRE_ADD, POST_ADD, POST_REMOVE, PRE_CLEAR
 from common.utils import get_logger
 from common.decorator import on_transaction_commit

@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 #
-from common.utils import lazyproperty
+from assets.models import Node
+from common.utils import lazyproperty, get_object_or_none
 from common.tree import TreeNodeSerializer
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Model
+from perms.models import MappingNode
+from rest_framework.exceptions import PermissionDenied
+
 from ..mixin import UserPermissionMixin
 from ...utils import AssetPermissionUtil, ParserNode
 from ...hands import Node, Asset
@@ -81,3 +85,28 @@ class UserAssetTreeMixin:
         queryset = self.get_serializer_queryset(queryset)
         queryset.sort()
         return super().get_serializer(queryset, many=many, **kwargs)
+
+
+class DispatchUserGrantedNodeMixin:
+
+    def dispatch_node_process(self, key, mapping_node: MappingNode, node: Node = None):
+        queryset = Model.objects.none()
+        if mapping_node is None:
+            ancestor_keys = Node.get_node_ancestor_keys(key)
+            granted = MappingNode.objects.filter(key__in=ancestor_keys, granted=True).exists()
+            if not granted:
+                raise PermissionDenied
+            queryset = self.on_granted_node(key, mapping_node, node)
+        else:
+            if mapping_node.granted:
+                # granted_node
+                queryset = self.on_granted_node(key, mapping_node, node)
+            else:
+                self.on_ungranted_node(key, mapping_node, node)
+        return queryset
+
+    def on_granted_node(self, key, mapping_node: MappingNode, node: Node = None):
+        return Model.objects.none()
+
+    def on_ungranted_node(self, key, mapping_node: MappingNode, node: Node = None):
+        return Model.objects.none()

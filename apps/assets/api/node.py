@@ -251,14 +251,18 @@ class MoveAssetsToNodeApi(generics.UpdateAPIView):
     instance = None
 
     def perform_update(self, serializer):
-        m2m_model = Asset.nodes.through
         assets = serializer.validated_data.get('assets')
         node = self.get_object()
+        self.remove_old_nodes(assets)
+        node.assets.add(*assets)
 
-        # 查询中间表，查出资产的所有关系
+    def remove_old_nodes(self, assets):
+        m2m_model = Asset.nodes.through
+
+        # 查询资产与节点关系表，查出要移动资产与节点的所有关系
         relates = m2m_model.objects.filter(asset__in=assets).values_list('asset_id', 'node_id')
         if relates:
-            # 对关系以资产进行分组
+            # 对关系以资产进行分组，用来发 `reverse=False` 信号
             asset_nodes_mapper = defaultdict(set)
             for asset_id, node_id in relates:
                 asset_nodes_mapper[asset_id].add(node_id)
@@ -276,13 +280,11 @@ class MoveAssetsToNodeApi(generics.UpdateAPIView):
             num = len(relates)
             asset_ids, node_ids = zip(*relates)
             # 删除之前的关系
-            rows, _ = m2m_model.objects.filter(asset_id__in=asset_ids, node_id__in=node_ids).delete()
+            rows, _i = m2m_model.objects.filter(asset_id__in=asset_ids, node_id__in=node_ids).delete()
             if rows != num:
                 raise SomeoneIsDoingThis
             # 发送 post 信号
             [sender(action=POST_REMOVE) for sender in senders]
-
-        node.assets.add(*assets)
 
 
 class NodeTaskCreateApi(generics.CreateAPIView):

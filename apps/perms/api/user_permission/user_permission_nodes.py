@@ -39,10 +39,21 @@ class UserGrantedNodesForAdminApi(ListAPIView):
 
     def get_queryset(self):
         user = self.get_user()
+
+        # 查询所有直接授权或者资产授权的节点
         queryset = Node.objects.filter(
             Q(granted_by_permissions__users=user) |
-            Q(granted_by_permissions__user_groups__users=user)
-        ).distinct().only(
+            Q(granted_by_permissions__user_groups__users=user) |
+            Q(assets__granted_by_permissions__users=user) |
+            Q(assets__granted_by_permissions__user_groups__users=user)
+        )
+        # 计算以上节点的祖先节点 key
+        ancestor_keys = set()
+        leaf_keys = set(queryset.all().values_list('key', flat=True))
+        for key in leaf_keys:
+            ancestor_keys.update(Node.get_node_ancestor_keys(key))
+        queryset |= Node.objects.filter(key__in=ancestor_keys)
+        queryset = queryset.distinct().only(
             *self.nodes_only_fields
         )
         return queryset

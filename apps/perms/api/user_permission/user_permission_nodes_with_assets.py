@@ -12,9 +12,9 @@ from common.utils.django import get_object_or_none
 from common.utils import get_logger
 from .user_permission_nodes import UserGrantedNodesAsTreeApi
 from .user_permission_nodes import UserGrantedNodeChildrenAsTreeApi
-from .mixin import DispatchUserGrantedNodeMixin
+from .mixin import UserGrantedNodeAssetMixin
 from perms.models import MappingNode
-from perms.utils import check_user_mapping_node_task
+
 from assets.models import Node, Asset
 from assets.api import SerializeToTreeNodeMixin
 from perms.exceptions import AdminIsModifyingPerm
@@ -30,16 +30,33 @@ __all__ = [
 ]
 
 
-class UserGrantedNodeChildrenWithAssetsAsTreeApi(SerializeToTreeNodeMixin, ListAPIView):
+@method_decorator(tmp_to_root_org(), name='list')
+class UserGrantedNodeChildrenWithAssetsAsTreeApi(UserGrantedNodeAssetMixin, SerializeToTreeNodeMixin, ListAPIView):
     permission_classes = (IsValidUser, )
+
+    def on_granted_node(self, key, mapping_node: MappingNode, node: Node = None):
+        nodes = Node.objects.filter(parent_key=key)
+        assets = Asset.objects.filter(nodes__key=key).distinct()
+        return nodes, assets
+
+    def on_ungranted_node(self, key, mapping_node: MappingNode, node: Node = None):
+        user = self.request.user
+        assets = Asset.objects.none()
+        nodes = Node.objects.filter(
+            mapping_nodes__parent_key=key,
+            mapping_nodes__user=user,
+            mapping_nodes__granted_ref_count__gt=0
+        ).distinct()
+        if mapping_node.asset_granted_ref_count > 0:
+            assets = Asset.objects.filter(
+                nodes__key=key,
+            ).filter(Q(granted_by_permissions__users=user) | Q(granted_by_permissions__user_groups__users=user))
+        return nodes, assets
 
     def list(self, request: Request, *args, **kwargs):
         user = request.user
         key = request.query_params.get('key')
-        try:
-            check_user_mapping_node_task(user)
-        except SomeoneIsDoingThis:
-            raise AdminIsModifyingPerm
+        self.check_user_mapping_node_task(user)
 
         nodes = []
         assets = []
@@ -52,31 +69,14 @@ class UserGrantedNodeChildrenWithAssetsAsTreeApi(SerializeToTreeNodeMixin, ListA
         else:
             mapping_node: MappingNode = get_object_or_none(
                 MappingNode, user=user, key=key, granted_ref_count__gt=0)
-            if mapping_node is None:
-                nodes = Node.objects.filter(parent_key=key)
-                assets = Asset.objects.filter(nodes__key=key).distinct()
-            else:
-                if mapping_node.granted:
-                    nodes = Node.objects.filter(parent_key=key)
-                    assets = Asset.objects.filter(nodes__key=key).distinct()
-                else:
-                    nodes = Node.objects.filter(
-                        mapping_nodes__parent_key=key,
-                        mapping_nodes__user=user,
-                        mapping_nodes__granted_ref_count__gt=0
-                    ).distinct()
-                    if mapping_node.asset_granted_ref_count > 0:
-                        assets = Asset.objects.filter(
-                            nodes__key=key,
-                        ).filter(Q(granted_by_permissions__users=user)|Q(granted_by_permissions__user_groups__users=user))
-
+            nodes, assets = self.dispatch_node_process(key, mapping_node)
         nodes = self.serialize_nodes(nodes)
         assets = self.serialize_assets(assets, key)
         return Response(data=[*nodes, *assets])
 
 
 @method_decorator(tmp_to_root_org(), name='list')
-class UserGrantedNodeChildrenApi(DispatchUserGrantedNodeMixin, SerializeToTreeNodeMixin, ListAPIView):
+class UserGrantedNodeChildrenApi(UserGrantedNodeAssetMixin, SerializeToTreeNodeMixin, ListAPIView):
     permission_classes = (IsValidUser, )
 
     def list(self, request: Request, *args, **kwargs):
@@ -84,10 +84,7 @@ class UserGrantedNodeChildrenApi(DispatchUserGrantedNodeMixin, SerializeToTreeNo
         user = request.user
         key = request.query_params.get('key')
 
-        try:
-            check_user_mapping_node_task(user)
-        except SomeoneIsDoingThis:
-            raise AdminIsModifyingPerm
+        self.check_user_mapping_node_task(user)
 
         if not key:
             nodes = Node.objects.filter(

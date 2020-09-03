@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 #
-from assets.models import Node
 from common.utils import lazyproperty, get_object_or_none
 from common.tree import TreeNodeSerializer
 from django.db.models import QuerySet, Model
 from perms.models import MappingNode
 from rest_framework.exceptions import PermissionDenied
 
+from perms.utils import check_user_mapping_node_task
+from perms.exceptions import AdminIsModifyingPerm
+from common.exceptions import SomeoneIsDoingThis
 from ..mixin import UserPermissionMixin
 from ...utils import AssetPermissionUtil, ParserNode
 from ...hands import Node, Asset
@@ -87,7 +89,16 @@ class UserAssetTreeMixin:
         return super().get_serializer(queryset, many=many, **kwargs)
 
 
-class DispatchUserGrantedNodeMixin:
+class UserGrantedNodeAssetMixin:
+
+    def check_user_mapping_node_task(self, user):
+        """
+        检查该用户是否还有未完成的同步授权树任务
+        """
+        try:
+            check_user_mapping_node_task(user)
+        except SomeoneIsDoingThis:
+            raise AdminIsModifyingPerm
 
     def dispatch_node_process(self, key, mapping_node: MappingNode, node: Node = None):
         if mapping_node is None:

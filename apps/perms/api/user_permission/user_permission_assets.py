@@ -5,7 +5,7 @@ from functools import reduce
 
 from django.db.models import Q
 from django.utils.decorators import method_decorator
-from perms.api.user_permission.mixin import DispatchUserGrantedNodeMixin
+from perms.api.user_permission.mixin import UserGrantedNodeAssetMixin
 from rest_framework.generics import ListAPIView
 
 from common.utils import get_object_or_none
@@ -63,7 +63,7 @@ class UserGrantedAssetsAsTreeApi(UserAssetTreeMixin, UserGrantedAssetsForUserApi
 
 
 @method_decorator(tmp_to_root_org(), name='list')
-class UserGrantedNodeAssetsApi(DispatchUserGrantedNodeMixin, ListAPIView):
+class UserGrantedNodeAssetsApi(UserGrantedNodeAssetMixin, ListAPIView):
     permission_classes = (IsValidUser,)
     serializer_class = serializers.AssetGrantedSerializer
     only_fields = serializers.AssetGrantedSerializer.Meta.only_fields
@@ -73,6 +73,7 @@ class UserGrantedNodeAssetsApi(DispatchUserGrantedNodeMixin, ListAPIView):
     def get_queryset(self):
         node_id = self.kwargs.get("node_id")
         user = self.request.user
+        self.check_user_mapping_node_task(user)
 
         mapping_node: MappingNode = get_object_or_none(
             MappingNode, user=user, node_id=node_id, granted_ref_count__gt=0)

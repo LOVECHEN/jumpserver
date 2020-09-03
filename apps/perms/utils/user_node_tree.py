@@ -15,7 +15,7 @@ from common.utils.timezone import dt_formater, now
 from assets.models import Node, Asset
 from django.db.transaction import atomic
 from orgs import lock
-from perms.models import MappingNode, UpdateMappingNodeTask
+from perms.models import MappingNode, UpdateMappingNodeTask, AssetPermission
 from users.models import User
 
 logger = get_logger(__name__)
@@ -95,6 +95,10 @@ def inc_tmp_asset_granted_ref_count(obj, value=1):
     obj_field_add(obj, TMP_ASSET_GRANTED_REF_COUNT_FIELD, value)
 
 
+def inc_tmp_node_granted_ref_count(obj, value=1):
+    obj_field_add(obj, TMP_NODE_GRANTED_REF_COUNT_FIELD, value)
+
+
 def update_mapping_nodes(mapping_node_keys, user: User, nodes: List[Node], action: str):
     """
     给定一组 node ，更新或者创建对应的 MappingNode。更新的值包括
@@ -112,28 +116,19 @@ def update_mapping_nodes(mapping_node_keys, user: User, nodes: List[Node], actio
     mapping_nodes = MappingNode.objects.filter(key__in=mapping_node_keys, user=user)
     key2mapping_node_map = {mapping_node.key: mapping_node for mapping_node in mapping_nodes}
     for node in nodes:
-        _granted = getattr(node, TMP_GRANTED_FIELD, False)
         _asset_granted_ref_count = getattr(node, TMP_ASSET_GRANTED_REF_COUNT_FIELD, 0)
+        _node_granted_ref_count = getattr(node, TMP_NODE_GRANTED_REF_COUNT_FIELD, 0)
         _granted_ref_count = getattr(node, TMP_GRANTED_REF_COUNT_FIELD, 0)
 
         if node.key in key2mapping_node_map:
             # 已存在的映射节点
             mapping_node = key2mapping_node_map[node.key]
             if action == ADD:
-                if _granted:
-                    if mapping_node.granted:
-                        # 相同节点不能授权两次
-                        raise ValueError('')
-                    mapping_node.granted = True
-
+                inc_tmp_node_granted_ref_count(mapping_node, _node_granted_ref_count)
                 inc_tmp_asset_granted_ref_count(mapping_node, _asset_granted_ref_count)
                 inc_tmp_granted_ref_count(mapping_node, _granted_ref_count)
             elif action == REMOVE:
-                if _granted:
-                    if not mapping_node.granted:
-                        # 数据有问题
-                        raise ValueError('')
-                    mapping_node.granted = False
+                inc_tmp_node_granted_ref_count(mapping_node, -_node_granted_ref_count)
                 inc_tmp_asset_granted_ref_count(mapping_node, -_asset_granted_ref_count)
                 inc_tmp_granted_ref_count(mapping_node, -_granted_ref_count)
 
@@ -147,9 +142,9 @@ def update_mapping_nodes(mapping_node_keys, user: User, nodes: List[Node], actio
                 mapping_node = MappingNode(
                     key=node.key,
                     user=user,
-                    granted=_granted,
                     granted_ref_count=_granted_ref_count,
                     asset_granted_ref_count=_asset_granted_ref_count,
+                    node_granted_ref_count=_node_granted_ref_count,
                     parent_key=node.parent_key,
                     node=node,
                 )
@@ -158,20 +153,18 @@ def update_mapping_nodes(mapping_node_keys, user: User, nodes: List[Node], actio
                 mapping_node = to_create[node.key]
                 mapping_node.granted_ref_count += _granted_ref_count
                 mapping_node.asset_granted_ref_count += _asset_granted_ref_count
-                if _granted:
-                    if mapping_node.granted:
-                        raise ValueError()
-                    mapping_node.granted = True
+                mapping_node.node_granted_ref_count += _node_granted_ref_count
 
     for n in to_update:
         n.granted_ref_count = F('granted_ref_count') + getattr(n, TMP_GRANTED_REF_COUNT_FIELD, 0)
         n.asset_granted_ref_count = F('asset_granted_ref_count') + getattr(n, TMP_ASSET_GRANTED_REF_COUNT_FIELD, 0)
-    MappingNode.objects.bulk_update(to_update, ('granted', 'granted_ref_count', 'asset_granted_ref_count'))
+        n.node_granted_ref_count = F('node_granted_ref_count') + getattr(n, TMP_NODE_GRANTED_REF_COUNT_FIELD, 0)
+    MappingNode.objects.bulk_update(to_update, ('granted_ref_count', 'asset_granted_ref_count', 'node_granted_ref_count'))
     MappingNode.objects.bulk_create(to_create.values())
 
 
-def update_ancestor_node(node2ancestor_keys_map:dict, key2ancestor_node_map:dict):
-    for node, keys in node2ancestor_keys_map.items():
+def update_ancestor_node(node2ancestor_keys_tuple, key2ancestor_node_map: dict):
+    for node, keys in node2ancestor_keys_tuple:
         for key in keys:
             ancestor = key2ancestor_node_map[key]  # TODO 404
             # 只更新 TMP_GRANTED_REF_COUNT_FIELD 字段，因为祖先的 TMP_ASSET_GRANTED_REF_COUNT_FIELD 数据不被影响
@@ -184,7 +177,7 @@ def update_users_tree_for_perm_change(users,
                                       action=ADD):
     """
     `_granted_ref_count` 授权计数，等于节点或者资产授权数的总和
-    `_granted` 该节点是否直接授权
+    `_node_granted_ref_count` 该节点授权计数
     `_asset_granted_ref_count` 资产授权计数
     """
 
@@ -199,41 +192,34 @@ def update_users_tree_for_perm_change(users,
     # 由于资产授权而产生的节点，该节点的属性值:
     # `_granted_ref_count`: 授权资产数量
     # `_asset_granted_ref_count`: 授权资产数量
-    # `_granted`: `False`
-    asset_granted_nodes = []
-    for n in asset_granted_nodes_qs:
-        n._granted = False
-        asset_granted_nodes.append(n)
+    # `_node_granted_ref_count`: None
+    asset_granted_nodes = [*asset_granted_nodes_qs]
 
     # 直接授权的 `Node`，该节点属性值：
     # `_granted_ref_count`: 1
-    # `_granted`: `True`
+    # `_node_granted_ref_count`: 1
     for n in nodes:
         inc_tmp_granted_ref_count(n)
-        n._granted = True
+        inc_tmp_node_granted_ref_count(n)
 
-    # 资产授权节点与直接授权节点总共的祖先`key`，因为两者可能会重叠，所以字典的键复杂
-    node2ancestor_keys_map = {n: n.get_ancestor_keys() for n in nodes}
-    asset_granted_nodes2ancestor_keys_map = {n: n.get_ancestor_keys() for n in asset_granted_nodes}
-
-    ancestor_keys_groups = [*node2ancestor_keys_map.values(), *asset_granted_nodes2ancestor_keys_map.values()]
-
+    # 资产授权节点与直接授权节点总共的祖先`key`
+    node2ancestor_keys_tuple = [(n, n.get_ancestor_keys()) for n in chain(nodes, asset_granted_nodes)]
+    all_nodes, ancestor_keys_groups = zip(*node2ancestor_keys_tuple)
+    ancestor_keys = set(chain(*ancestor_keys_groups))
     # 查询出要用的祖先节点
     key2ancestor_node_map = {node.key: node for node in
-                             Node.objects.filter(key__in=set(chain(*ancestor_keys_groups)))}
+                             Node.objects.filter(key__in=ancestor_keys)}
 
-    update_ancestor_node(node2ancestor_keys_map, key2ancestor_node_map)
-    update_ancestor_node(asset_granted_nodes2ancestor_keys_map, key2ancestor_node_map)
+    update_ancestor_node(node2ancestor_keys_tuple, key2ancestor_node_map)
 
     # 整合所有的 key
     keys = reduce(or_, (
-        key2ancestor_node_map.keys(),
-        {n.key for n in nodes},
-        {n.key for n in asset_granted_nodes}
+        ancestor_keys,
+        {n.key for n in all_nodes},
     ))
 
     # 授权节点，资产授权节点，祖先节点
-    all_nodes = [*nodes, *asset_granted_nodes, *key2ancestor_node_map.values()]
+    all_nodes = [*all_nodes, *key2ancestor_node_map.values()]
 
     for user in users:
         # 每个用户单独处理自己的树
@@ -327,7 +313,7 @@ def compute_tmp_mapping_node_from_perm(user: User):
     print(f'checking............. {user}')
     errors = []
     nodes = Node.objects.filter(
-        Q(granted_by_permissions__users=user) | 
+        Q(granted_by_permissions__users=user) |
         Q(granted_by_permissions__user_groups__users=user)
     ).distinct()
 
@@ -339,6 +325,7 @@ def compute_tmp_mapping_node_from_perm(user: User):
     leaf_nodes = []
 
     for node in nodes:
+
         inc_tmp_granted_ref_count(node)
         set_tmp_granted(node)
         leaf_nodes.append(node)

@@ -194,8 +194,11 @@ def on_asset_nodes_add(instance, action, reverse, pk_set, **kwargs):
 
 def _update_node_assets_amount(node: Node, asset_pk_set: set, operator=add):
     """
-    :param asset_pk_set: 内部不会修改该值
+    一个节点与多个资产关系变化时，更新计数
 
+    :param node: 节点实例
+    :param asset_pk_set: 资产的`id`集合, 内部不会修改该值
+    :param operator: 操作
     * -> Node
     # -> Asset
 
@@ -242,6 +245,14 @@ def _remove_ancestor_keys(ancestor_key, tree_set):
 
 
 def _update_nodes_asset_amount(node_keys, asset_pk, operator):
+    """
+    一个资产与多个节点关系变化时，更新计数
+
+    :param node_keys: 节点 id 的集合
+    :param asset_pk: 资产 id
+    :param operator: 操作
+    """
+
     # 所有相关节点的祖先节点，组成一棵局部树
     ancestor_keys = set()
     for key in node_keys:

@@ -212,6 +212,6 @@ def on_node_asset_change(action, instance, reverse, pk_set, **kwargs):
     user_ap_q = Q(**{f'{user_ap_query_name}__assets__id__in': asset_pk_set})
     group_ap_q = Q(**{f'groups__{group_ap_query_name}__assets__id__in': asset_pk_set})
 
-    from_user_ids = User.objects.filter(user_ap_q).values_list('id')
-    from_group_ids = User.objects.filter(group_ap_q).values_list('id')
+    from_user_ids = User.objects.filter(user_ap_q).values_list('id', flat=True)
+    from_group_ids = User.objects.filter(group_ap_q).values_list('id', flat=True)
     create_rebuild_user_tree_task(chain(from_user_ids, from_group_ids))

@@ -25,7 +25,7 @@ def fill_node_value(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('assets', '0057_auto_20200821_1620'),
+        ('assets', '0056_auto_20200904_1751'),
     ]
 
     operations = [

@@ -396,7 +396,7 @@ class SomeNodesMixin:
 
 class Node(OrgModelMixin, SomeNodesMixin, FamilyMixin, NodeAssetsMixin):
     id = models.UUIDField(default=uuid.uuid4, primary_key=True)
-    key = models.CharField(unique=True, max_length=64, verbose_name=_("Key"), db_index=True)  # '1:1:1:1'
+    key = models.CharField(unique=True, max_length=64, verbose_name=_("Key"))  # '1:1:1:1'
     value = models.CharField(max_length=128, verbose_name=_("Value"))
     child_mark = models.IntegerField(default=0)
     date_create = models.DateTimeField(auto_now_add=True)

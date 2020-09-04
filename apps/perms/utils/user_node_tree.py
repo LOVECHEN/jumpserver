@@ -15,7 +15,7 @@ from common.utils.timezone import dt_formater, now
 from assets.models import Node, Asset
 from django.db.transaction import atomic
 from orgs import lock
-from perms.models import MappingNode, RebuildUserTreeTask
+from perms.models import UserGrantedMappingNode, RebuildUserTreeTask
 from users.models import User
 
 logger = get_logger(__name__)
@@ -131,7 +131,7 @@ def create_mapping_nodes(user, nodes, clear=True):
     for node in nodes:
         _granted = getattr(node, TMP_GRANTED_FIELD, False)
         _asset_granted = getattr(node, TMP_ASSET_GRANTED_FIELD, False)
-        to_create.append(MappingNode(
+        to_create.append(UserGrantedMappingNode(
             user=user,
             node=node,
             key=node.key,
@@ -141,8 +141,8 @@ def create_mapping_nodes(user, nodes, clear=True):
         ))
 
     if clear:
-        MappingNode.objects.filter(user=user).delete()
-    MappingNode.objects.bulk_create(to_create)
+        UserGrantedMappingNode.objects.filter(user=user).delete()
+    UserGrantedMappingNode.objects.bulk_create(to_create)
 
 
 def rebuild_mapping_nodes(user):

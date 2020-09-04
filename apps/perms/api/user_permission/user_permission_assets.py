@@ -15,7 +15,7 @@ from common.utils import get_logger
 from ...hands import Node
 from ... import serializers
 from .mixin import UserAssetTreeMixin
-from perms.models import MappingNode
+from perms.models import UserGrantedMappingNode
 from assets.models import Asset
 from orgs.utils import tmp_to_root_org
 
@@ -73,28 +73,26 @@ class UserGrantedNodeAssetsApi(UserGrantedNodeAssetMixin, ListAPIView):
     def get_queryset(self):
         node_id = self.kwargs.get("node_id")
         user = self.request.user
-        self.check_user_mapping_node_task(user)
 
-        mapping_node: MappingNode = get_object_or_none(
-            MappingNode, user=user, node_id=node_id, granted_ref_count__gt=0)
+        mapping_node: UserGrantedMappingNode = get_object_or_none(
+            UserGrantedMappingNode, user=user, node_id=node_id)
         node = Node.objects.get(id=node_id)
         return self.dispatch_node_process(node.key, mapping_node, node)
 
-    def on_granted_node(self, key, mapping_node: MappingNode, node: Node = None):
+    def on_granted_node(self, key, mapping_node: UserGrantedMappingNode, node: Node = None):
         return Asset.objects.filter(
             Q(nodes__key__startswith=f'{node.key}:') |
             Q(nodes__id=node.id)
         ).distinct()
 
-    def on_ungranted_node(self, key, mapping_node: MappingNode, node: Node = None):
+    def on_ungranted_node(self, key, mapping_node: UserGrantedMappingNode, node: Node = None):
         user = self.request.user
         assets = Asset.objects.none()
 
         # 查询该节点下的授权节点
-        granted_mapping_nodes = MappingNode.objects.filter(
+        granted_mapping_nodes = UserGrantedMappingNode.objects.filter(
             user=user,
             granted=True,
-            granted_ref_count__gt=0,
             key__startswith=f'{node.key}:',
         )
 
@@ -105,10 +103,10 @@ class UserGrantedNodeAssetsApi(UserGrantedNodeAssetMixin, ListAPIView):
             granted_nodes_qs.append(Q(nodes__key=node.key))
 
         # 查询该节点下的资产授权节点
-        only_asset_granted_mapping_nodes = MappingNode.objects.filter(
+        only_asset_granted_mapping_nodes = UserGrantedMappingNode.objects.filter(
             user=user,
+            asset_granted=True,
             granted=False,
-            asset_granted_ref_count__gt=0,
             key__startswith=f'{node.key}:',
         )
 
@@ -118,7 +116,7 @@ class UserGrantedNodeAssetsApi(UserGrantedNodeAssetMixin, ListAPIView):
             only_asset_granted_nodes_qs.append(Q(nodes__id=node.node_id))
 
         # 判断当前节点有没有授权资产
-        if mapping_node.asset_granted_ref_count > 0:
+        if mapping_node.asset_granted:
             only_asset_granted_nodes_qs.append(Q(nodes__id=node.id))
 
         q = []

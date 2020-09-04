@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 #
-from common.utils import lazyproperty, get_object_or_none
+from common.utils import lazyproperty
 from common.tree import TreeNodeSerializer
-from django.db.models import QuerySet, Model
-from perms.models import MappingNode
+from django.db.models import QuerySet
+from perms.models import UserGrantedMappingNode
 from rest_framework.exceptions import PermissionDenied
 
-from perms.utils import check_user_mapping_node_task
+from perms.async_tasks.mapping_node_task import submit_update_mapping_node_task_for_user
 from perms.exceptions import AdminIsModifyingPerm
 from common.exceptions import SomeoneIsDoingThis
 from ..mixin import UserPermissionMixin
@@ -91,19 +91,17 @@ class UserAssetTreeMixin:
 
 class UserGrantedNodeAssetMixin:
 
-    def check_user_mapping_node_task(self, user):
-        """
-        检查该用户是否还有未完成的同步授权树任务
-        """
-        try:
-            check_user_mapping_node_task(user)
-        except SomeoneIsDoingThis:
-            raise AdminIsModifyingPerm
+    def list(self, request, *args, **kwargs):
+        self.submit_update_mapping_node_task(user=self.request.user)
+        return super().list(request, *args, **kwargs)
 
-    def dispatch_node_process(self, key, mapping_node: MappingNode, node: Node = None):
+    def submit_update_mapping_node_task(self, user):
+        submit_update_mapping_node_task_for_user(user)
+
+    def dispatch_node_process(self, key, mapping_node: UserGrantedMappingNode, node: Node = None):
         if mapping_node is None:
             ancestor_keys = Node.get_node_ancestor_keys(key)
-            granted = MappingNode.objects.filter(key__in=ancestor_keys, granted=True).exists()
+            granted = UserGrantedMappingNode.objects.filter(key__in=ancestor_keys, granted=True).exists()
             if not granted:
                 raise PermissionDenied
             queryset = self.on_granted_node(key, mapping_node, node)
@@ -115,8 +113,8 @@ class UserGrantedNodeAssetMixin:
                 queryset = self.on_ungranted_node(key, mapping_node, node)
         return queryset
 
-    def on_granted_node(self, key, mapping_node: MappingNode, node: Node = None):
+    def on_granted_node(self, key, mapping_node: UserGrantedMappingNode, node: Node = None):
         raise NotImplementedError
 
-    def on_ungranted_node(self, key, mapping_node: MappingNode, node: Node = None):
+    def on_ungranted_node(self, key, mapping_node: UserGrantedMappingNode, node: Node = None):
         raise NotImplementedError

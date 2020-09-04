@@ -29,7 +29,7 @@ __all__ = [
 
 class UserGrantedNodesForAdminApi(ListAPIView):
     """
-    查询用户授权的所有节点的API
+    查询用户授权的所有节点
     """
     permission_classes = (IsOrgAdminOrAppUser,)
     serializer_class = serializers.NodeGrantedSerializer
@@ -42,21 +42,21 @@ class UserGrantedNodesForAdminApi(ListAPIView):
         user = self.get_user()
 
         # 查询所有直接授权或者资产授权的节点
-        queryset_by_user = Node.objects.filter(
+        queryset_from_node = Node.objects.filter(
             Q(granted_by_permissions__users=user) |
             Q(granted_by_permissions__user_groups__users=user)
         ).distinct().only(
             *self.nodes_only_fields
         )
 
-        queryset_by_group = Node.objects.filter(
+        queryset_from_asset = Node.objects.filter(
             Q(assets__granted_by_permissions__users=user) |
             Q(assets__granted_by_permissions__user_groups__users=user)
         ).distinct().only(
             *self.nodes_only_fields
         )
 
-        leaf_nodes = [*queryset_by_user, *queryset_by_group]
+        leaf_nodes = [*queryset_from_node, *queryset_from_asset]
         # 计算以上节点的祖先节点 key
         ancestor_keys = set()
         for node in leaf_nodes:

@@ -6,18 +6,16 @@ from rest_framework.response import Response
 from django.db.models import Q
 from django.utils.decorators import method_decorator
 
-from common.exceptions import SomeoneIsDoingThis
 from common.permissions import IsValidUser
 from common.utils.django import get_object_or_none
 from common.utils import get_logger
 from .user_permission_nodes import UserGrantedNodesAsTreeApi
 from .user_permission_nodes import UserGrantedNodeChildrenAsTreeApi
 from .mixin import UserGrantedNodeAssetMixin
-from perms.models import MappingNode
+from perms.models import UserGrantedMappingNode
 
 from assets.models import Node, Asset
 from assets.api import SerializeToTreeNodeMixin
-from perms.exceptions import AdminIsModifyingPerm
 from orgs.utils import tmp_to_root_org
 
 logger = get_logger(__name__)
@@ -34,20 +32,19 @@ __all__ = [
 class UserGrantedNodeChildrenWithAssetsAsTreeApi(UserGrantedNodeAssetMixin, SerializeToTreeNodeMixin, ListAPIView):
     permission_classes = (IsValidUser, )
 
-    def on_granted_node(self, key, mapping_node: MappingNode, node: Node = None):
+    def on_granted_node(self, key, mapping_node: UserGrantedMappingNode, node: Node = None):
         nodes = Node.objects.filter(parent_key=key)
         assets = Asset.objects.filter(nodes__key=key).distinct()
         return nodes, assets
 
-    def on_ungranted_node(self, key, mapping_node: MappingNode, node: Node = None):
+    def on_ungranted_node(self, key, mapping_node: UserGrantedMappingNode, node: Node = None):
         user = self.request.user
         assets = Asset.objects.none()
         nodes = Node.objects.filter(
             mapping_nodes__parent_key=key,
             mapping_nodes__user=user,
-            mapping_nodes__granted_ref_count__gt=0
         ).distinct()
-        if mapping_node.asset_granted_ref_count > 0:
+        if mapping_node.asset_granted:
             assets = Asset.objects.filter(
                 nodes__key=key,
             ).filter(Q(granted_by_permissions__users=user) | Q(granted_by_permissions__user_groups__users=user))
@@ -56,19 +53,18 @@ class UserGrantedNodeChildrenWithAssetsAsTreeApi(UserGrantedNodeAssetMixin, Seri
     def list(self, request: Request, *args, **kwargs):
         user = request.user
         key = request.query_params.get('key')
-        self.check_user_mapping_node_task(user)
+        self.submit_update_mapping_node_task(user)
 
         nodes = []
         assets = []
         if not key:
-            root_node = Node.objects.filter(
-                mapping_nodes__user=user,
-                mapping_nodes__granted_ref_count__gt=0
-            ).get(parent_key='')
-            nodes.append(root_node)
+            root_nodes = Node.objects.filter(
+                mapping_nodes__user=user, parent_key=''
+            )
+            nodes.extend(root_nodes)
         else:
-            mapping_node: MappingNode = get_object_or_none(
-                MappingNode, user=user, key=key, granted_ref_count__gt=0)
+            mapping_node: UserGrantedMappingNode = get_object_or_none(
+                UserGrantedMappingNode, user=user, key=key)
             nodes, assets = self.dispatch_node_process(key, mapping_node)
         nodes = self.serialize_nodes(nodes)
         assets = self.serialize_assets(assets, key)
@@ -84,29 +80,27 @@ class UserGrantedNodeChildrenApi(UserGrantedNodeAssetMixin, SerializeToTreeNodeM
         user = request.user
         key = request.query_params.get('key')
 
-        self.check_user_mapping_node_task(user)
+        self.submit_update_mapping_node_task(user)
 
         if not key:
             nodes = Node.objects.filter(
                 mapping_nodes__user=user,
-                mapping_nodes__granted_ref_count__gt=0,
                 parent_key=''
             )
         else:
             mapping_node = get_object_or_none(
-                MappingNode, user=user, key=key, granted_ref_count__gt=0
+                UserGrantedMappingNode, user=user, key=key
             )
             nodes = self.dispatch_node_process(key, mapping_node, None)
         nodes = self.serialize_nodes(nodes)
         return Response(data=nodes)
 
-    def on_granted_node(self, key, mapping_node: MappingNode, node: Node = None):
+    def on_granted_node(self, key, mapping_node: UserGrantedMappingNode, node: Node = None):
         return Node.objects.filter(parent_key=key)
 
-    def on_ungranted_node(self, key, mapping_node: MappingNode, node: Node = None):
+    def on_ungranted_node(self, key, mapping_node: UserGrantedMappingNode, node: Node = None):
         user = self.request.user
         return Node.objects.filter(
             parent_key=key,
             mapping_nodes__user=user,
-            mapping_nodes__granted_ref_count__gt=0
         ).distinct()

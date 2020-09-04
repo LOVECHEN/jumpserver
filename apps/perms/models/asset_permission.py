@@ -15,7 +15,7 @@ from .base import BasePermission
 
 
 __all__ = [
-    'AssetPermission', 'Action', 'MappingNode', 'RebuildUserTreeTask',
+    'AssetPermission', 'Action', 'UserGrantedMappingNode', 'RebuildUserTreeTask',
 ]
 logger = logging.getLogger(__name__)
 
@@ -176,7 +176,7 @@ class AssetPermission(BasePermission):
                 continue
 
 
-class MappingNode(FamilyMixin, models.JMSBaseModel):
+class UserGrantedMappingNode(FamilyMixin, models.JMSBaseModel):
     node = models.ForeignKey('assets.Node', default=None, on_delete=models.CASCADE,
                              db_constraint=False, null=True, related_name='mapping_nodes')
     key = models.CharField(max_length=64, verbose_name=_("Key"), db_index=True)  # '1:1:1:1'

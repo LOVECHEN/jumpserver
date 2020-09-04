@@ -9,15 +9,12 @@ from django.db import transaction
 from django.db.models import Q, F
 
 from perms.async_tasks.mapping_node_task import submit_update_mapping_node_task
-from perms.utils.user_node_tree import check_mapping_node_task
 from users.models import User
-from assets.models import Node, Asset
+from assets.models import Asset
 from common.utils import get_logger
 from common.exceptions import M2MReverseNotAllowed
-from common.const.signals import POST_ADD, POST_REMOVE, PRE_CLEAR, PRE_REMOVE, POST_CLEAR
+from common.const.signals import POST_ADD, POST_REMOVE, PRE_CLEAR
 from .models import AssetPermission, RemoteAppPermission, RebuildUserTreeTask
-from .utils import update_users_tree_for_perm_change, ADD, REMOVE
-from perms.exceptions import CanNotRemoveAssetPermNow
 
 
 logger = get_logger(__file__)
@@ -28,17 +25,8 @@ logger = get_logger(__file__)
 
 @receiver([pre_delete], sender=AssetPermission)
 def on_asset_permission_delete(instance, **kwargs):
-    if not check_mapping_node_task():
-        submit_update_mapping_node_task()
-        raise CanNotRemoveAssetPermNow
-    nodes = list(instance.nodes.all())
-    assets = list(instance.assets.all())
-    user_ap_query_name = AssetPermission.users.field.related_query_name()
-    group_ap_query_name = AssetPermission.user_groups.field.related_query_name()
-    user_ap_q = Q(**{f'{user_ap_query_name}': instance})
-    group_ap_q = Q(**{f'groups__{group_ap_query_name}': instance})
-    users = list(User.objects.filter(user_ap_q | group_ap_q).distinct())
-    update_users_tree_for_perm_change(users, assets=assets, nodes=nodes, action=REMOVE)
+    # 授权删除之前，查出所有相关用户
+    create_rebuild_user_tree_task_by_asset_perm(instance)
 
 
 def create_rebuild_user_tree_task(user_ids):
@@ -58,20 +46,25 @@ def create_rebuild_user_tree_task_by_asset_perm(asset_perm: AssetPermission):
     create_rebuild_user_tree_task(user_ids)
 
 
+def need_rebuild_mapping_node(action):
+    return action in (POST_REMOVE, POST_ADD, PRE_CLEAR)
+
+
 @receiver(m2m_changed, sender=AssetPermission.nodes.through)
-def on_permission_nodes_changed(instance, action, reverse, pk_set, **kwargs):
+def on_permission_nodes_changed(instance, action, reverse, pk_set, model, **kwargs):
     if reverse:
         raise M2MReverseNotAllowed
 
-    actions = (POST_REMOVE, POST_ADD, PRE_CLEAR)
-    if action in actions:
+    if need_rebuild_mapping_node(action):
         create_rebuild_user_tree_task_by_asset_perm(instance)
 
     if action != POST_ADD:
         return
     logger.debug("Asset permission nodes change signal received")
-    nodes = kwargs['model'].objects.filter(pk__in=pk_set)
+    nodes = model.objects.filter(pk__in=pk_set)
     system_users = instance.system_users.all()
+
+    # TODO 待优化
     for system_user in system_users:
         system_user.nodes.add(*tuple(nodes))
 
@@ -81,8 +74,7 @@ def on_permission_assets_changed(instance, action, reverse, pk_set, model, **kwa
     if reverse:
         raise M2MReverseNotAllowed
 
-    actions = (POST_REMOVE, POST_ADD, PRE_CLEAR)
-    if action in actions:
+    if need_rebuild_mapping_node(action):
         create_rebuild_user_tree_task_by_asset_perm(instance)
 
     if action != POST_ADD:
@@ -97,9 +89,11 @@ def on_permission_assets_changed(instance, action, reverse, pk_set, model, **kwa
 
 
 @receiver(m2m_changed, sender=AssetPermission.system_users.through)
-def on_asset_permission_system_users_changed(sender, instance=None, action='',
-                                             reverse=False, **kwargs):
-    if action != POST_ADD and reverse:
+def on_asset_permission_system_users_changed(instance, action, reverse, **kwargs):
+    if reverse:
+        raise M2MReverseNotAllowed
+
+    if action != POST_ADD:
         return
     logger.debug("Asset permission system_users change signal received")
     system_users = kwargs['model'].objects.filter(pk__in=kwargs['pk_set'])
@@ -120,8 +114,7 @@ def on_asset_permission_users_changed(instance, action, reverse, pk_set, model, 
     if reverse:
         raise M2MReverseNotAllowed
 
-    actions = (POST_REMOVE, POST_ADD, PRE_CLEAR)
-    if action in actions:
+    if need_rebuild_mapping_node(action):
         create_rebuild_user_tree_task(pk_set)
 
     if action != POST_ADD:
@@ -142,8 +135,7 @@ def on_asset_permission_user_groups_changed(instance, action, pk_set, model,
     if reverse:
         raise M2MReverseNotAllowed
 
-    actions = (POST_REMOVE, POST_ADD, PRE_CLEAR)
-    if action in actions:
+    if need_rebuild_mapping_node(action):
         user_ids = User.objects.filter(groups__id__in=pk_set).distinct().values_list('id', flat=True)
         create_rebuild_user_tree_task(user_ids)
 
@@ -206,8 +198,7 @@ def on_remoteapps_permission_user_groups_changed(sender, instance=None, action='
 
 @receiver(m2m_changed, sender=Asset.nodes.through)
 def on_node_asset_change(action, instance, reverse, pk_set, **kwargs):
-    actions = (POST_REMOVE, POST_ADD, PRE_CLEAR)
-    if action not in actions:
+    if not need_rebuild_mapping_node(action):
         return
 
     if reverse:

@@ -15,7 +15,7 @@ from .base import BasePermission
 
 
 __all__ = [
-    'AssetPermission', 'Action', 'MappingNode', 'UpdateMappingNodeTask',
+    'AssetPermission', 'Action', 'MappingNode', 'RebuildUserTreeTask',
 ]
 logger = logging.getLogger(__name__)
 
@@ -182,14 +182,10 @@ class MappingNode(FamilyMixin, models.JMSBaseModel):
     key = models.CharField(max_length=64, verbose_name=_("Key"), db_index=True)  # '1:1:1:1'
     user = models.ForeignKey('users.User', db_constraint=False, on_delete=models.CASCADE)
     granted = models.BooleanField(default=False, db_index=True)
-    node_granted_ref_count = models.IntegerField(default=0)
-    granted_ref_count = models.IntegerField(default=0)
-    asset_granted_ref_count = models.IntegerField(default=0)
+    asset_granted = models.BooleanField(default=False, db_index=True)
     parent_key = models.CharField(max_length=64, default='', verbose_name=_('Parent key'), db_index=True)  # '1:1:1:1'
+    asset_amount = models.IntegerField(default=0)
 
 
-class UpdateMappingNodeTask(models.JMSBaseModel):
+class RebuildUserTreeTask(models.JMSBaseModel):
     user = models.ForeignKey('users.User', on_delete=models.CASCADE, verbose_name=_('User'))
-    node_pks = JsonListTextField()
-    asset_pks = JsonListTextField()
-    action = models.CharField(max_length=32, default='')

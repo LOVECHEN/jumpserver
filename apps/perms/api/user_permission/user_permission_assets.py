@@ -16,6 +16,7 @@ from ...hands import Node
 from ... import serializers
 from .mixin import UserAssetTreeMixin
 from perms.models import UserGrantedMappingNode
+from perms.utils.user_node_tree import get_node_all_granted_assets
 from assets.models import Asset
 from orgs.utils import tmp_to_root_org
 
@@ -87,48 +88,4 @@ class UserGrantedNodeAssetsApi(UserGrantedNodeAssetMixin, ListAPIView):
 
     def on_ungranted_node(self, key, mapping_node: UserGrantedMappingNode, node: Node = None):
         user = self.request.user
-        assets = Asset.objects.none()
-
-        # 查询该节点下的授权节点
-        granted_mapping_nodes = UserGrantedMappingNode.objects.filter(
-            user=user,
-            granted=True,
-            key__startswith=f'{node.key}:',
-        )
-
-        # 根据授权节点构建查询
-        granted_nodes_qs = []
-        for node in granted_mapping_nodes:
-            granted_nodes_qs.append(Q(nodes__key__startswith=f'{node.key}:'))
-            granted_nodes_qs.append(Q(nodes__key=node.key))
-
-        # 查询该节点下的资产授权节点
-        only_asset_granted_mapping_nodes = UserGrantedMappingNode.objects.filter(
-            user=user,
-            asset_granted=True,
-            granted=False,
-            key__startswith=f'{node.key}:',
-        )
-
-        # 根据资产授权节点构建查询
-        only_asset_granted_nodes_qs = []
-        for node in only_asset_granted_mapping_nodes:
-            only_asset_granted_nodes_qs.append(Q(nodes__id=node.node_id))
-
-        # 判断当前节点有没有授权资产
-        if mapping_node.asset_granted:
-            only_asset_granted_nodes_qs.append(Q(nodes__id=node.id))
-
-        q = []
-        if granted_nodes_qs:
-            q.append(reduce(or_, granted_nodes_qs))
-
-        if only_asset_granted_nodes_qs:
-            only_asset_granted_nodes_q = reduce(or_, only_asset_granted_nodes_qs)
-            only_asset_granted_nodes_q &= Q(granted_by_permissions__users=user) | Q(
-                granted_by_permissions__user_groups__users=user)
-            q.append(only_asset_granted_nodes_q)
-
-        if q:
-            assets = Asset.objects.filter(reduce(or_, q)).distinct()
-        return assets
+        return get_node_all_granted_assets(user, node.key, mapping_node.asset_granted)

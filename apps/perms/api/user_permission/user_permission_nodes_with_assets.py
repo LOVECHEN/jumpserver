@@ -3,7 +3,7 @@
 from rest_framework.generics import ListAPIView
 from rest_framework.request import Request
 from rest_framework.response import Response
-from django.db.models import Q
+from django.db.models import Q, F
 from django.utils.decorators import method_decorator
 
 from common.permissions import IsValidUser
@@ -13,6 +13,7 @@ from .user_permission_nodes import UserGrantedNodesAsTreeApi
 from .user_permission_nodes import UserGrantedNodeChildrenAsTreeApi
 from .mixin import UserGrantedNodeAssetMixin
 from perms.models import UserGrantedMappingNode
+from perms.utils.user_node_tree import TMP_GRANTED_FIELD, TMP_GRANTED_ASSET_AMOUNT
 
 from assets.models import Node, Asset
 from assets.api import SerializeToTreeNodeMixin
@@ -41,9 +42,18 @@ class UserGrantedNodeChildrenWithAssetsAsTreeApi(UserGrantedNodeAssetMixin, Seri
         user = self.request.user
         assets = Asset.objects.none()
         nodes = Node.objects.filter(
-            mapping_nodes__parent_key=key,
+            parent_key=key,
             mapping_nodes__user=user,
+        ).annotate(
+            _granted_asset_amount=F('mapping_nodes__asset_amount'),
+            _granted=F('mapping_nodes__granted')
         ).distinct()
+
+        # TODO 可配置
+        for _node in nodes:
+            if not getattr(_node, TMP_GRANTED_FIELD, False):
+                _node.assets_amount = getattr(_node, TMP_GRANTED_ASSET_AMOUNT, 0)
+
         if mapping_node.asset_granted:
             assets = Asset.objects.filter(
                 nodes__key=key,
@@ -66,7 +76,7 @@ class UserGrantedNodeChildrenWithAssetsAsTreeApi(UserGrantedNodeAssetMixin, Seri
             mapping_node: UserGrantedMappingNode = get_object_or_none(
                 UserGrantedMappingNode, user=user, key=key)
             nodes, assets = self.dispatch_node_process(key, mapping_node)
-        nodes = self.serialize_nodes(nodes)
+        nodes = self.serialize_nodes(nodes, with_asset_amount=True)
         assets = self.serialize_assets(assets, key)
         return Response(data=[*nodes, *assets])
 
@@ -86,13 +96,21 @@ class UserGrantedNodeChildrenApi(UserGrantedNodeAssetMixin, SerializeToTreeNodeM
             nodes = Node.objects.filter(
                 mapping_nodes__user=user,
                 parent_key=''
-            )
+            ).annotate(
+                _granted_asset_amount=F('mapping_nodes__asset_amount'),
+                _granted=F('mapping_nodes__granted')
+            ).distinct()
+
+            # TODO 可配置
+            for _node in nodes:
+                if not getattr(_node, TMP_GRANTED_FIELD, False):
+                    _node.assets_amount = getattr(_node, TMP_GRANTED_ASSET_AMOUNT, 0)
         else:
             mapping_node = get_object_or_none(
                 UserGrantedMappingNode, user=user, key=key
             )
             nodes = self.dispatch_node_process(key, mapping_node, None)
-        nodes = self.serialize_nodes(nodes)
+        nodes = self.serialize_nodes(nodes, with_asset_amount=True)
         return Response(data=nodes)
 
     def on_granted_node(self, key, mapping_node: UserGrantedMappingNode, node: Node = None):
@@ -100,7 +118,17 @@ class UserGrantedNodeChildrenApi(UserGrantedNodeAssetMixin, SerializeToTreeNodeM
 
     def on_ungranted_node(self, key, mapping_node: UserGrantedMappingNode, node: Node = None):
         user = self.request.user
-        return Node.objects.filter(
+        nodes = Node.objects.filter(
             parent_key=key,
             mapping_nodes__user=user,
+        ).annotate(
+            _granted_asset_amount=F('mapping_nodes__asset_amount'),
+            _granted=F('mapping_nodes__granted')
         ).distinct()
+
+        # TODO 可配置
+        for _node in nodes:
+            if not getattr(_node, TMP_GRANTED_FIELD, False):
+                _node.assets_amount = getattr(_node, TMP_GRANTED_ASSET_AMOUNT, 0)
+
+        return nodes

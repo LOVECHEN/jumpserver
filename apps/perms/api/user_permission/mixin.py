@@ -7,8 +7,6 @@ from perms.models import UserGrantedMappingNode
 from rest_framework.exceptions import PermissionDenied
 
 from perms.async_tasks.mapping_node_task import submit_update_mapping_node_task_for_user
-from perms.exceptions import AdminIsModifyingPerm
-from common.exceptions import SomeoneIsDoingThis
 from ..mixin import UserPermissionMixin
 from ...utils import AssetPermissionUtil, ParserNode
 from ...hands import Node, Asset

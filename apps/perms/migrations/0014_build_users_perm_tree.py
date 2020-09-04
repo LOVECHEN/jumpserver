@@ -5,8 +5,8 @@ from perms.utils.user_node_tree import rebuild_mapping_nodes
 
 
 def build_users_perm_tree(apps, schema_editor):
-    users = apps.get_model('users', 'User')
-    for user in users:
+    from users.models import User
+    for user in User.objects.all():
         print(f'build_mapping_nodes for {user} begin')
         rebuild_mapping_nodes(user)
         print(f'build_mapping_nodes for {user} finish')
@@ -15,7 +15,7 @@ def build_users_perm_tree(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('assets', '0013_rebuildusertreetask_usergrantedmappingnode'),
+        ('perms', '0013_rebuildusertreetask_usergrantedmappingnode'),
     ]
 
     operations = [

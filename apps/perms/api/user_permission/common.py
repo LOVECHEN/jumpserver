@@ -16,7 +16,6 @@ from ...utils import (
 from ...hands import User, Asset, SystemUser
 from ... import serializers
 from ...models import Action
-from .mixin import UserAssetPermissionMixin
 
 logger = get_logger(__name__)
 
@@ -29,8 +28,7 @@ __all__ = [
 ]
 
 
-class GetUserAssetPermissionActionsApi(UserAssetPermissionMixin,
-                                       RetrieveAPIView):
+class GetUserAssetPermissionActionsApi(RetrieveAPIView):
     permission_classes = (IsOrgAdminOrAppUser,)
     serializer_class = serializers.ActionsSerializer
 

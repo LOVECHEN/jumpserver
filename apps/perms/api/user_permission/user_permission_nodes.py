@@ -8,12 +8,12 @@ from rest_framework.generics import (
     ListAPIView, get_object_or_404
 )
 
+from assets.api.mixin import SerializeToTreeNodeMixin
 from users.models import User
 from common.permissions import IsOrgAdminOrAppUser, IsValidUser
 from common.utils import get_logger
 from ...hands import Node, NodeSerializer
 from ... import serializers
-from .mixin import UserNodeTreeMixin
 
 
 logger = get_logger(__name__)
@@ -41,7 +41,7 @@ class UserGrantedNodesForAdminApi(ListAPIView):
     def get_queryset(self):
         user = self.get_user()
 
-        # 查询所有直接授权或者资产授权的节点
+        # 查询所有直接授权的节点
         queryset_from_node = Node.objects.filter(
             Q(granted_by_permissions__users=user) |
             Q(granted_by_permissions__user_groups__users=user)
@@ -49,6 +49,7 @@ class UserGrantedNodesForAdminApi(ListAPIView):
             *self.nodes_only_fields
         )
 
+        # 查询所有资产授权的节点
         queryset_from_asset = Node.objects.filter(
             Q(assets__granted_by_permissions__users=user) |
             Q(assets__granted_by_permissions__user_groups__users=user)
@@ -61,7 +62,7 @@ class UserGrantedNodesForAdminApi(ListAPIView):
         ancestor_keys = set()
         for node in leaf_nodes:
             ancestor_keys.update(node.get_ancestor_keys())
-        ancestor_nodes = Node.objects.filter(key__in=ancestor_keys)
+        ancestor_nodes = Node.objects.filter(key__in=ancestor_keys).only(*self.nodes_only_fields)
         nodes = []
         exist_keys = set()
         for node in chain(leaf_nodes, ancestor_nodes):
@@ -78,8 +79,13 @@ class UserGrantedNodesForUserApi(UserGrantedNodesForAdminApi):
         return self.request.user
 
 
-class UserGrantedNodesAsTreeApi(UserNodeTreeMixin, UserGrantedNodesForAdminApi):
+class NodeAsTreeMixin(SerializeToTreeNodeMixin):
     pass
+
+
+class UserGrantedNodesAsTreeApi(SerializeToTreeNodeMixin, UserGrantedNodesForAdminApi):
+    def list(self, request, *args, **kwargs):
+        super().list()
 
 
 class UserGrantedNodeChildrenApi(UserGrantedNodesForAdminApi):
@@ -106,5 +112,5 @@ class UserGrantedNodeChildrenApi(UserGrantedNodesForAdminApi):
         return queryset
 
 
-class UserGrantedNodeChildrenAsTreeApi(UserNodeTreeMixin, UserGrantedNodeChildrenApi):
+class UserGrantedNodeChildrenAsTreeApi(UserGrantedNodeChildrenApi):
     pass

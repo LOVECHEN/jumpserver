@@ -7,6 +7,7 @@ from django.db.models import Q
 from rest_framework.generics import (
     ListAPIView, get_object_or_404
 )
+from rest_framework.response import Response
 
 from assets.api.mixin import SerializeToTreeNodeMixin
 from users.models import User
@@ -79,34 +80,23 @@ class UserGrantedNodesForUserApi(UserGrantedNodesForAdminApi):
         return self.request.user
 
 
-class NodeAsTreeMixin(SerializeToTreeNodeMixin):
-    pass
-
-
 class UserGrantedNodesAsTreeApi(SerializeToTreeNodeMixin, UserGrantedNodesForAdminApi):
     def list(self, request, *args, **kwargs):
-        super().list()
+        queryset = self.get_queryset()
+        data = self.serialize_nodes(queryset, with_asset_amount=True)
+        return Response(data=data)
 
 
 class UserGrantedNodeChildrenApi(UserGrantedNodesForAdminApi):
-    node = None
-    root_keys = None  # 如果是第一次访问，则需要把二级节点添加进去，这个 roots_keys
-
-    def get(self, request, *args, **kwargs):
+    def get_queryset(self):
         key = self.request.query_params.get("key")
         pk = self.request.query_params.get("id")
 
-        node = None
-        if pk is not None:
-            node = get_object_or_404(Node, id=pk)
-        elif key is not None:
-            node = get_object_or_404(Node, key=key)
-        self.node = node
-        return super().get(request, *args, **kwargs)
+        if key is None and pk:
+            key = Node.objects.get(id=pk).key
 
-    def get_queryset(self):
-        if self.node:
-            queryset = Node.objects.filter(parent_key=self.node.key)
+        if key is not None:
+            queryset = Node.objects.filter(parent_key=key)
         else:
             queryset = Node.objects.filter(parent_key='')
         return queryset

@@ -368,7 +368,6 @@ class AssetPermissionUtil(AssetPermissionUtilCacheMixin):
         )
         asset_protocols = asset.protocols_as_dict.keys()
 
-        # TODO distinct 可能过滤掉数据，待验证
         values = queryset.filter(system_users__protocol__in=asset_protocols).distinct()\
             .values_list('system_users', 'actions')
         system_users_actions = defaultdict(int)
@@ -496,7 +495,6 @@ def get_asset_system_users_id_with_actions(user: User, asset: Asset):
     )
 
     asset_protocols = asset.protocols_as_dict.keys()
-    # TODO distinct 可能过滤掉数据
     values = queryset.filter(
         system_users__protocol__in=asset_protocols
     ).distinct().values_list('system_users', 'actions')

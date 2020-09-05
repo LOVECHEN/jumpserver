@@ -3,12 +3,15 @@
 import uuid
 
 from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
 from rest_framework.views import APIView, Response
 from rest_framework.generics import (
     ListAPIView, get_object_or_404, RetrieveAPIView, DestroyAPIView
 )
 
-from common.permissions import IsOrgAdminOrAppUser, IsOrgAdmin
+from orgs.utils import get_current_org, set_to_root_org, tmp_to_root_org
+from perms.utils.asset_permission import get_asset_system_users_id_with_actions
+from common.permissions import IsOrgAdminOrAppUser, IsOrgAdmin, IsValidUser
 from common.utils import get_logger
 from ...utils import (
     AssetPermissionUtil
@@ -21,10 +24,11 @@ logger = get_logger(__name__)
 
 __all__ = [
     'RefreshAssetPermissionCacheApi',
-    'UserGrantedAssetSystemUsersApi',
+    'UserGrantedAssetSystemUsersForAdminApi',
     'ValidateUserAssetPermissionApi',
     'GetUserAssetPermissionActionsApi',
     'UserAssetPermissionsCacheApi',
+    'MyGrantedAssetSystemUsersApi',
 ]
 
 
@@ -32,7 +36,7 @@ class GetUserAssetPermissionActionsApi(RetrieveAPIView):
     permission_classes = (IsOrgAdminOrAppUser,)
     serializer_class = serializers.ActionsSerializer
 
-    def get_obj(self):
+    def get_user(self):
         user_id = self.request.query_params.get('user_id', '')
         user = get_object_or_404(User, id=user_id)
         return user
@@ -50,18 +54,18 @@ class GetUserAssetPermissionActionsApi(RetrieveAPIView):
         asset = get_object_or_404(Asset, id=asset_id)
         system_user = get_object_or_404(SystemUser, id=system_id)
 
-        system_users_actions = self.util.get_asset_system_users_id_with_actions(asset)
+        system_users_actions = get_asset_system_users_id_with_actions(self.get_user(), asset)
         actions = system_users_actions.get(system_user.id)
         return {"actions": actions}
 
 
-class ValidateUserAssetPermissionApi(UserAssetPermissionMixin, APIView):
+class ValidateUserAssetPermissionApi(APIView):
     permission_classes = (IsOrgAdminOrAppUser,)
 
     def get_cache_policy(self):
         return 0
 
-    def get_obj(self):
+    def get_user(self):
         user_id = self.request.query_params.get('user_id', '')
         user = get_object_or_404(User, id=user_id)
         return user
@@ -80,7 +84,7 @@ class ValidateUserAssetPermissionApi(UserAssetPermissionMixin, APIView):
         asset = get_object_or_404(Asset, id=asset_id)
         system_user = get_object_or_404(SystemUser, id=system_id)
 
-        system_users_actions = self.util.get_asset_system_users_id_with_actions(asset)
+        system_users_actions = get_asset_system_users_id_with_actions(self.get_user(), asset)
         actions = system_users_actions.get(system_user.id)
         if actions is None:
             return Response({'msg': False}, status=403)
@@ -89,6 +93,7 @@ class ValidateUserAssetPermissionApi(UserAssetPermissionMixin, APIView):
         return Response({'msg': False}, status=403)
 
 
+# TODO 删除
 class RefreshAssetPermissionCacheApi(RetrieveAPIView):
     permission_classes = (IsOrgAdmin,)
 
@@ -97,15 +102,19 @@ class RefreshAssetPermissionCacheApi(RetrieveAPIView):
         return Response({'msg': True}, status=200)
 
 
-class UserGrantedAssetSystemUsersApi(UserAssetPermissionMixin, ListAPIView):
+class UserGrantedAssetSystemUsersForAdminApi(ListAPIView):
     permission_classes = (IsOrgAdminOrAppUser,)
     serializer_class = serializers.AssetSystemUserSerializer
     only_fields = serializers.AssetSystemUserSerializer.Meta.only_fields
 
+    def get_user(self):
+        user_id = self.kwargs.get('pk')
+        return User.objects.get(id=user_id)
+
     def get_queryset(self):
         asset_id = self.kwargs.get('asset_id')
         asset = get_object_or_404(Asset, id=asset_id)
-        system_users_with_actions = self.util.get_asset_system_users_id_with_actions(asset)
+        system_users_with_actions = get_asset_system_users_id_with_actions(self.get_user(), asset)
         system_users_id = system_users_with_actions.keys()
         system_users = SystemUser.objects.filter(id__in=system_users_id)\
             .only(*self.serializer_class.Meta.only_fields) \
@@ -117,9 +126,31 @@ class UserGrantedAssetSystemUsersApi(UserAssetPermissionMixin, ListAPIView):
         return system_users
 
 
-class UserAssetPermissionsCacheApi(UserAssetPermissionMixin, DestroyAPIView):
+@method_decorator(tmp_to_root_org(), name='list')
+class MyGrantedAssetSystemUsersApi(ListAPIView):
+    permission_classes = (IsValidUser,)
+    serializer_class = serializers.AssetSystemUserSerializer
+    only_fields = serializers.AssetSystemUserSerializer.Meta.only_fields
+
+    def get_queryset(self):
+        user = self.request.user
+        asset_id = self.kwargs.get('asset_id')
+        asset = get_object_or_404(Asset, id=asset_id)
+        system_users_with_actions = get_asset_system_users_id_with_actions(user, asset)
+        system_users_id = system_users_with_actions.keys()
+        system_users = SystemUser.objects.filter(id__in=system_users_id)\
+            .only(*self.serializer_class.Meta.only_fields) \
+            .order_by('priority')
+        system_users = list(system_users)
+        for system_user in system_users:
+            actions = system_users_with_actions.get(system_user.id, 0)
+            system_user.actions = actions
+        return system_users
+
+
+# TODO 删除
+class UserAssetPermissionsCacheApi(DestroyAPIView):
     permission_classes = (IsOrgAdmin,)
 
     def destroy(self, request, *args, **kwargs):
-        self.util.expire_user_tree_cache()
         return Response(status=204)

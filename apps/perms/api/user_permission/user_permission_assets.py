@@ -1,20 +1,18 @@
 # -*- coding: utf-8 -*-
 #
-from operator import or_
-from functools import reduce
-
 from django.db.models import Q
 from django.utils.decorators import method_decorator
 from perms.api.user_permission.mixin import UserGrantedNodeAssetMixin
 from rest_framework.generics import ListAPIView
+from rest_framework.response import Response
 
+from assets.api.mixin import SerializeToTreeNodeMixin
 from common.utils import get_object_or_none
 from users.models import User
 from common.permissions import IsOrgAdminOrAppUser, IsValidUser
 from common.utils import get_logger
 from ...hands import Node
 from ... import serializers
-from .mixin import UserAssetTreeMixin
 from perms.models import UserGrantedMappingNode
 from perms.utils.user_node_tree import get_node_all_granted_assets
 from assets.models import Asset
@@ -59,8 +57,11 @@ class UserGrantedAssetsForUserApi(UserGrantedAssetsForAdminApi):
 
 
 @method_decorator(tmp_to_root_org(), name='list')
-class UserGrantedAssetsAsTreeApi(UserAssetTreeMixin, UserGrantedAssetsForUserApi):
-    pass
+class UserGrantedAssetsAsTreeApi(SerializeToTreeNodeMixin, UserGrantedAssetsForUserApi):
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        data = self.serialize_assets(queryset, None)
+        return Response(data=data)
 
 
 @method_decorator(tmp_to_root_org(), name='list')

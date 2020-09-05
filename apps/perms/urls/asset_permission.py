@@ -15,26 +15,31 @@ router.register('asset-permissions-nodes-relations', api.AssetPermissionNodeRela
 router.register('asset-permissions-system-users-relations', api.AssetPermissionSystemUserRelationViewSet, 'asset-permissions-system-users-relation')
 
 user_permission_urlpatterns = [
+    # 统一说明：
+    # `<uuid:pk>`: `User.pk`
+    # 直接授权：在 `AssetPermission` 中关联的对象
+
+    # 获取用户所有直接授权的资产
     path('<uuid:pk>/assets/', api.UserGrantedAssetsForAdminApi.as_view(), name='user-assets'),
     path('assets/', api.UserGrantedAssetsForUserApi.as_view(), name='my-assets'),
 
-    # Assets as tree
+    # 获取用户所有直接授权的资产，以 Tree Node 的数据格式返回
     path('<uuid:pk>/assets/tree/', api.UserGrantedAssetsAsTreeApi.as_view(), name='user-assets-as-tree'),
     path('assets/tree/', api.UserGrantedAssetsAsTreeApi.as_view(), name='my-assets-as-tree'),
 
-    # Nodes
+    # 获取用户所有**直接授权的节点** 与 **直接资产授权**关联的节点
     path('<uuid:pk>/nodes/', api.UserGrantedNodesForAdminApi.as_view(), name='user-nodes'),
     path('nodes/', api.UserGrantedNodesForUserApi.as_view(), name='my-nodes'),
 
-    # Node children
-    path('<uuid:pk>/nodes/children/', api.UserGrantedNodeChildrenApi.as_view(), name='user-nodes-children'),
-    path('nodes/children/', api.UserGrantedNodeChildrenApi.as_view(), name='my-nodes-children'),
-
-    # Node as tree
+    # 获取用户所有**直接授权的节点** 与 **直接资产授权**关联的节点，以 Tree Node 的数据格式返回
     path('<uuid:pk>/nodes/tree/', api.UserGrantedNodesAsTreeApi.as_view(), name='user-nodes-as-tree'),
     path('nodes/tree/', api.UserGrantedNodesAsTreeApi.as_view(), name='my-nodes-as-tree'),
 
-    # Node children as tree
+    # 一层一层的获取用户授权的节点，需要给出父节点 key，以 Tree Node 的数据格式返回
+    path('<uuid:pk>/nodes/children/', api.UserGrantedNodeChildrenApi.as_view(), name='user-nodes-children'),
+    path('nodes/children/', api.UserGrantedNodeChildrenApi.as_view(), name='my-nodes-children'),
+
+    # 一层一层的获取用户授权的节点，需要给出父节点 key 或 pk
     path('<uuid:pk>/nodes/children/tree/', api.UserGrantedNodeChildrenAsTreeApi.as_view(), name='user-nodes-children-as-tree'),
     path('nodes/children/tree/', non_atomic_requests(api.UserGrantedNodeChildrenApi.as_view()), name='my-nodes-children-as-tree'),
 
@@ -47,10 +52,10 @@ user_permission_urlpatterns = [
     path('nodes/<uuid:node_id>/assets/', api.UserGrantedNodeAssetsApi.as_view(), name='my-node-assets'),
 
     # Asset System users
-    path('<uuid:pk>/assets/<uuid:asset_id>/system-users/', api.UserGrantedAssetSystemUsersApi.as_view(), name='user-asset-system-users'),
-    path('assets/<uuid:asset_id>/system-users/', api.UserGrantedAssetSystemUsersApi.as_view(), name='my-asset-system-users'),
+    path('<uuid:pk>/assets/<uuid:asset_id>/system-users/', api.UserGrantedAssetSystemUsersForAdminApi.as_view(), name='user-asset-system-users'),
+    path('assets/<uuid:asset_id>/system-users/', api.MyGrantedAssetSystemUsersApi.as_view(), name='my-asset-system-users'),
 
-    # Expire user permission cache
+    # TODO 要废弃 Expire user permission cache
     path('<uuid:pk>/asset-permissions/cache/', api.UserAssetPermissionsCacheApi.as_view(),
          name='user-asset-permission-cache'),
     path('asset-permissions/cache/', api.UserAssetPermissionsCacheApi.as_view(), name='my-asset-permission-cache'),

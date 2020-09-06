@@ -19,7 +19,6 @@ from ...utils import (
 from ...hands import User, Asset, SystemUser
 from ... import serializers
 from ...models import Action
-from .mixin import ForAdminMixin, ForUserMixin
 
 logger = get_logger(__name__)
 

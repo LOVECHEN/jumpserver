@@ -38,6 +38,7 @@ __all__ = [
 
 
 class MyGrantedNodesWithAssetsAsTreeApi(SerializeToTreeNodeMixin, ListAPIView):
+    permission_classes = (IsValidUser,)
 
     @tmp_to_root_org()
     def list(self, request: Request, *args, **kwargs):

@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 #
+from typing import List
+
 from rest_framework.generics import ListAPIView
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -9,24 +11,103 @@ from django.utils.decorators import method_decorator
 from common.permissions import IsValidUser
 from common.utils.django import get_object_or_none
 from common.utils import get_logger
-from .user_permission_nodes import UserGrantedNodesAsTreeApi
+from .user_permission_nodes import MyGrantedNodesAsTreeApi
 from .user_permission_nodes import UserGrantedNodeChildrenAsTreeApi
 from .mixin import UserGrantedNodeAssetMixin
 from perms.models import UserGrantedMappingNode
-from perms.utils.user_node_tree import TMP_GRANTED_FIELD, TMP_GRANTED_ASSET_AMOUNT
+from perms.utils.user_node_tree import (
+    TMP_GRANTED_FIELD, TMP_GRANTED_ASSET_AMOUNT, node_annotate_mapping_node,
+    is_asset_granted, is_granted, get_granted_asset_amount, node_annotate_set_granted,
+    get_granted_q,
+)
 
-from assets.models import Node, Asset
+from assets.models import Asset
 from assets.api import SerializeToTreeNodeMixin
 from orgs.utils import tmp_to_root_org
+from ...hands import Node
 
 logger = get_logger(__name__)
 
 __all__ = [
-    'UserGrantedNodesAsTreeApi',
+    'MyGrantedNodesAsTreeApi',
     'UserGrantedNodeChildrenAsTreeApi',
     'UserGrantedNodeChildrenWithAssetsAsTreeApi',
     'UserGrantedNodeChildrenApi',
+    'MyGrantedNodesWithAssetsAsTreeApi',
 ]
+
+
+class MyGrantedNodesWithAssetsAsTreeApi(SerializeToTreeNodeMixin, ListAPIView):
+
+    def serialize_assets(self, assets: List[Asset]):
+        data = [
+            {
+                'id': str(asset.id),
+                'name': asset.hostname,
+                'title': asset.ip,
+                'pId': asset.parent_key,
+                'isParent': False,
+                'open': False,
+                'iconSkin': self.get_platform(asset),
+                'nocheck': not asset.has_protocol('ssh'),
+                'meta': {
+                    'type': 'asset',
+                    'asset': {
+                        'id': asset.id,
+                        'hostname': asset.hostname,
+                        'ip': asset.ip,
+                        'protocols': asset.protocols_as_list,
+                        'platform': asset.platform_base,
+                        'domain': asset.domain_id,
+                        'org_id': asset.org_id
+                    },
+                }
+            }
+            for asset in assets
+        ]
+        return data
+
+    @tmp_to_root_org()
+    def list(self, request: Request, *args, **kwargs):
+        user = request.user
+
+        # 获取 `UserGrantedMappingNode` 中对应的 `Node`
+        nodes = Node.objects.filter(
+            mapping_nodes__user=user,
+        ).annotate(**node_annotate_mapping_node).distinct()
+
+        key2nodes_mapper = {}
+        descendant_q = Q()
+        granted_q = Q()
+
+        for _node in nodes:
+            if not is_granted(_node):
+                _node.assets_amount = get_granted_asset_amount(_node)
+            else:
+                # 直接授权的节点
+                granted_q |= Q(nodes__key__startswith=f'{_node.key}:')
+                granted_q |= Q(nodes__key=_node.key)
+                descendant_q |= Q(key__startswith=f'{_node.key}:')
+            key2nodes_mapper[_node.key] = _node
+
+        if descendant_q:
+            descendant_nodes = Node.objects.filter(descendant_q).annotate(**node_annotate_set_granted)
+            for _node in descendant_nodes:
+                key2nodes_mapper[_node.key] = _node
+
+        all_nodes = key2nodes_mapper.values()
+
+        # 查询出所有资产
+        all_assets = Asset.objects.filter(
+            get_granted_q(user) |
+            granted_q
+        ).annotate(parent_key=F('nodes__key')).distinct()
+
+        data = [
+            *self.serialize_nodes(all_nodes, with_asset_amount=True),
+            *self.serialize_assets(all_assets)
+        ]
+        return Response(data=data)
 
 
 @method_decorator(tmp_to_root_org(), name='list')

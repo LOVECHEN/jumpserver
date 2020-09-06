@@ -1,11 +1,9 @@
-from itertools import chain
-from typing import List
 from functools import reduce
 from operator import or_
 from uuid import uuid4
 import threading
 
-from django.db.models import F, Count, Q
+from django.db.models import F, Count, Q, Value, BooleanField
 
 from common.utils import get_logger
 from common.const.distributed_lock_key import UPDATE_MAPPING_NODE_TASK_LOCK_KEY
@@ -23,9 +21,40 @@ ADD = 'add'
 REMOVE = 'remove'
 
 
+def get_granted_q(user: User):
+    return (
+            Q(granted_by_permissions__users=user) |
+            Q(granted_by_permissions__user_groups__users=user)
+    )
+
+
 TMP_GRANTED_FIELD = '_granted'
 TMP_ASSET_GRANTED_FIELD = '_asset_granted'
 TMP_GRANTED_ASSET_AMOUNT = '_granted_asset_amount'
+
+
+node_annotate_mapping_node = {
+    TMP_GRANTED_FIELD: F('mapping_nodes__granted'),
+    TMP_ASSET_GRANTED_FIELD: F('mapping_nodes__asset_granted'),
+    TMP_GRANTED_ASSET_AMOUNT: F('mapping_nodes__assets_amount')
+}
+
+
+node_annotate_set_granted = {
+    TMP_GRANTED_FIELD: Value(True, output_field=BooleanField()),
+}
+
+
+def is_granted(node):
+    return getattr(node, TMP_GRANTED_FIELD, False)
+
+
+def is_asset_granted(node):
+    return getattr(node, TMP_ASSET_GRANTED_FIELD, False)
+
+
+def get_granted_asset_amount(node):
+    return getattr(node, TMP_GRANTED_ASSET_AMOUNT, 0)
 
 
 def obj_field_add(obj, field, value=1):
@@ -33,11 +62,11 @@ def obj_field_add(obj, field, value=1):
     setattr(obj, field, new_value)
 
 
-def set_tmp_granted(obj):
+def set_granted(obj):
     setattr(obj, TMP_GRANTED_FIELD, True)
 
 
-def set_tmp_asset_granted(obj):
+def set_asset_granted(obj):
     setattr(obj, TMP_ASSET_GRANTED_FIELD, True)
 
 
@@ -101,7 +130,7 @@ def compute_tmp_mapping_node_from_perm(user: User):
     # 给授权节点设置 _granted 标识，同时去重
     for _node in nodes:
         if _node.key not in key2leaf_nodes_mapper:
-            set_tmp_granted(_node)
+            set_granted(_node)
             key2leaf_nodes_mapper[_node.key] = _node
 
     # 查询授权资产关联的节点设置
@@ -113,7 +142,7 @@ def compute_tmp_mapping_node_from_perm(user: User):
     for _node in granted_asset_nodes:
         if _node.key not in key2leaf_nodes_mapper:
             key2leaf_nodes_mapper[_node.key] = _node
-        set_tmp_asset_granted(key2leaf_nodes_mapper[_node.key])
+        set_asset_granted(key2leaf_nodes_mapper[_node.key])
     leaf_nodes = key2leaf_nodes_mapper.values()
 
     # 计算所有祖先节点
@@ -223,11 +252,7 @@ def get_node_all_granted_assets_from_perm(user: User, key):
     1. 查询该节点下的直接授权节点
     2. 查询该节点下授权资产关联的节点
     """
-
-    granted_q = (
-            Q(granted_by_permissions__user=user) |
-            Q(granted_by_permissions__user_groups__users=user)
-    )
+    granted_q = get_granted_q(user)
 
     granted_nodes = Node.objects.filter(
         Q(key__startswith=f'{key}:') | Q(key=key)

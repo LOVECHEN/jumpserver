@@ -22,7 +22,7 @@ logger = get_logger(__name__)
 __all__ = [
     'UserGrantedNodesForAdminApi',
     'UserGrantedNodesForUserApi',
-    'UserGrantedNodesAsTreeApi',
+    'MyGrantedNodesAsTreeApi',
     'UserGrantedNodeChildrenApi',
     'UserGrantedNodeChildrenAsTreeApi',
 ]
@@ -63,6 +63,8 @@ class UserGrantedNodesForAdminApi(ListAPIView):
         ancestor_keys = set()
         for node in leaf_nodes:
             ancestor_keys.update(node.get_ancestor_keys())
+
+        # 查询所有祖先节点
         ancestor_nodes = Node.objects.filter(key__in=ancestor_keys).only(*self.nodes_only_fields)
         nodes = []
         exist_keys = set()
@@ -80,7 +82,7 @@ class UserGrantedNodesForUserApi(UserGrantedNodesForAdminApi):
         return self.request.user
 
 
-class UserGrantedNodesAsTreeApi(SerializeToTreeNodeMixin, UserGrantedNodesForAdminApi):
+class MyGrantedNodesAsTreeApi(SerializeToTreeNodeMixin, UserGrantedNodesForAdminApi):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         data = self.serialize_nodes(queryset, with_asset_amount=True)

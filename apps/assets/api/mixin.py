@@ -15,7 +15,6 @@ class SerializeToTreeNodeMixin:
         else:
             def _name(node: Node):
                 return node.value
-
         data = [
             {
                 'id': node.key,

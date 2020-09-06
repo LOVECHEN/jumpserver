@@ -37,8 +37,8 @@ user_permission_urlpatterns = [
     path('nodes/', api.UserGrantedNodesForUserApi.as_view(), name='my-nodes'),
 
     # 以 Tree Node 的数据格式返回
-    path('<uuid:pk>/nodes/tree/', api.UserGrantedNodesAsTreeApi.as_view(), name='user-nodes-as-tree'),
-    path('nodes/tree/', api.UserGrantedNodesAsTreeApi.as_view(), name='my-nodes-as-tree'),
+    path('<uuid:pk>/nodes/tree/', api.MyGrantedNodesAsTreeApi.as_view(), name='user-nodes-as-tree'),
+    path('nodes/tree/', api.MyGrantedNodesAsTreeApi.as_view(), name='my-nodes-as-tree'),
     # ^--------------------------------------------------------^
 
     # 一层一层的获取用户授权的节点，
@@ -52,6 +52,10 @@ user_permission_urlpatterns = [
     # - 普通用户 -> 我的资产 -> 展开节点 时调用
     path('nodes/children/tree/', api.UserGrantedNodeChildrenApi.as_view(), name='my-nodes-children-as-tree'),
     # ^--------------------------------------------------------^
+
+    # 此接口会返回整棵树
+    # 普通用户 -> 命令执行 -> 左侧树
+    path('nodes-with-assets/tree/', api.MyGrantedNodesWithAssetsAsTreeApi.as_view(), name='my-nodes-with-assets-as-tree'),
 
     # Node children with assets as tree
     path('<uuid:pk>/nodes/children-with-assets/tree/', api.UserGrantedNodeChildrenWithAssetsAsTreeApi.as_view(), name='user-nodes-children-with-assets-as-tree'),

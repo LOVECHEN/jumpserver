@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 #
+from rest_framework.generics import get_object_or_404
+
+from users.models import User
 from perms.models import UserGrantedMappingNode
-from rest_framework.exceptions import PermissionDenied
 from common.exceptions import JMSObjectDoesNotExist
 from perms.async_tasks.mapping_node_task import submit_update_mapping_node_task_for_user
-from ...hands import Node, Asset
+from ...hands import Node
 
 
 class UserGrantedNodeAssetMixin:

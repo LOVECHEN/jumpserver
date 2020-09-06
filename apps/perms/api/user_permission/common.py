@@ -9,7 +9,7 @@ from rest_framework.generics import (
     ListAPIView, get_object_or_404, RetrieveAPIView, DestroyAPIView
 )
 
-from orgs.utils import get_current_org, set_to_root_org, tmp_to_root_org
+from orgs.utils import tmp_to_root_org
 from perms.utils.asset_permission import get_asset_system_users_id_with_actions
 from common.permissions import IsOrgAdminOrAppUser, IsOrgAdmin, IsValidUser
 from common.utils import get_logger
@@ -19,6 +19,7 @@ from ...utils import (
 from ...hands import User, Asset, SystemUser
 from ... import serializers
 from ...models import Action
+from .mixin import ForAdminMixin, ForUserMixin
 
 logger = get_logger(__name__)
 
@@ -112,28 +113,7 @@ class UserGrantedAssetSystemUsersForAdminApi(ListAPIView):
         return User.objects.get(id=user_id)
 
     def get_queryset(self):
-        asset_id = self.kwargs.get('asset_id')
-        asset = get_object_or_404(Asset, id=asset_id)
-        system_users_with_actions = get_asset_system_users_id_with_actions(self.get_user(), asset)
-        system_users_id = system_users_with_actions.keys()
-        system_users = SystemUser.objects.filter(id__in=system_users_id)\
-            .only(*self.serializer_class.Meta.only_fields) \
-            .order_by('priority')
-        system_users = list(system_users)
-        for system_user in system_users:
-            actions = system_users_with_actions.get(system_user.id, 0)
-            system_user.actions = actions
-        return system_users
-
-
-@method_decorator(tmp_to_root_org(), name='list')
-class MyGrantedAssetSystemUsersApi(ListAPIView):
-    permission_classes = (IsValidUser,)
-    serializer_class = serializers.AssetSystemUserSerializer
-    only_fields = serializers.AssetSystemUserSerializer.Meta.only_fields
-
-    def get_queryset(self):
-        user = self.request.user
+        user = self.get_user()
         asset_id = self.kwargs.get('asset_id')
         asset = get_object_or_404(Asset, id=asset_id)
         system_users_with_actions = get_asset_system_users_id_with_actions(user, asset)
@@ -146,6 +126,14 @@ class MyGrantedAssetSystemUsersApi(ListAPIView):
             actions = system_users_with_actions.get(system_user.id, 0)
             system_user.actions = actions
         return system_users
+
+
+@method_decorator(tmp_to_root_org(), name='list')
+class MyGrantedAssetSystemUsersApi(UserGrantedAssetSystemUsersForAdminApi):
+    permission_classes = (IsValidUser,)
+
+    def get_user(self):
+        return self.request.user
 
 
 # TODO 删除

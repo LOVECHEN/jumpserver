@@ -484,11 +484,11 @@ def get_asset_system_users_id_with_actions(user: User, asset: Asset):
     nodes = asset.get_nodes()
     node_keys = set()
     for node in nodes:
-        node_keys = node.get_ancestor_keys(with_self=True)
-        node_keys.update(node_keys)
+        ancestor_keys = node.get_ancestor_keys(with_self=True)
+        node_keys.update(ancestor_keys)
 
     queryset = AssetPermission.objects.filter(
-        Q(user=user) | Q(user_groups__user=user)
+        Q(users=user) | Q(user_groups__users=user)
     ).filter(
         Q(assets=asset) |
         Q(nodes__key__in=node_keys)

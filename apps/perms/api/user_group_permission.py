@@ -19,7 +19,7 @@ class UserGroupGrantedAssetsApi(UserGroupPermissionMixin, uapi.UserGrantedAssets
     pass
 
 
-class UserGroupGrantedNodeAssetsApi(UserGroupPermissionMixin, uapi.UserGrantedNodeAssetsApi):
+class UserGroupGrantedNodeAssetsApi(UserGroupPermissionMixin, uapi.UserGrantedNodeAssetsForAdminApi):
     pass
 
 
@@ -35,7 +35,7 @@ class UserGroupGrantedNodeChildrenAsTreeApi(UserGroupPermissionMixin, uapi.UserG
     pass
 
 
-class UserGroupGrantedNodeChildrenWithAssetsAsTreeApi(UserGroupPermissionMixin, uapi.UserGrantedNodeChildrenWithAssetsAsTreeApi):
+class UserGroupGrantedNodeChildrenWithAssetsAsTreeApi(UserGroupPermissionMixin, uapi.UserGrantedNodeChildrenWithAssetsAsTreeForAdminApi):
     pass
 
 

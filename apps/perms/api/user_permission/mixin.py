@@ -1,14 +1,9 @@
 # -*- coding: utf-8 -*-
 #
-from common.utils import lazyproperty
-from common.tree import TreeNodeSerializer
-from django.db.models import QuerySet
 from perms.models import UserGrantedMappingNode
 from rest_framework.exceptions import PermissionDenied
-
+from common.exceptions import JMSObjectDoesNotExist
 from perms.async_tasks.mapping_node_task import submit_update_mapping_node_task_for_user
-from ..mixin import UserPermissionMixin
-from ...utils import AssetPermissionUtil, ParserNode
 from ...hands import Node, Asset
 
 
@@ -26,7 +21,7 @@ class UserGrantedNodeAssetMixin:
             ancestor_keys = Node.get_node_ancestor_keys(key)
             granted = UserGrantedMappingNode.objects.filter(key__in=ancestor_keys, granted=True).exists()
             if not granted:
-                raise PermissionDenied
+                raise JMSObjectDoesNotExist(object_name=Node._meta.object_name)
             queryset = self.on_granted_node(key, mapping_node, node)
         else:
             if mapping_node.granted:

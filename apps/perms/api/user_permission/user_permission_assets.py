@@ -24,7 +24,8 @@ logger = get_logger(__name__)
 
 __all__ = [
     'UserGrantedAssetsForAdminApi', 'UserGrantedAssetsAsTreeApi',
-    'UserGrantedNodeAssetsApi', 'UserGrantedAssetsForUserApi'
+    'UserGrantedNodeAssetsForAdminApi', 'UserGrantedAssetsForUserApi',
+    'UserGrantedAssetsAsTreeForAdminApi', 'MyGrantedNodeAssetsApi',
 ]
 
 
@@ -58,7 +59,7 @@ class UserGrantedAssetsForUserApi(UserGrantedAssetsForAdminApi):
 
 
 @method_decorator(tmp_to_root_org(), name='list')
-class UserGrantedAssetsAsTreeApi(SerializeToTreeNodeMixin, UserGrantedAssetsForUserApi):
+class UserGrantedAssetsAsTreeForAdminApi(SerializeToTreeNodeMixin, UserGrantedAssetsForAdminApi):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         data = self.serialize_assets(queryset, None)
@@ -66,17 +67,25 @@ class UserGrantedAssetsAsTreeApi(SerializeToTreeNodeMixin, UserGrantedAssetsForU
 
 
 @method_decorator(tmp_to_root_org(), name='list')
-class UserGrantedNodeAssetsApi(UserGrantedNodeAssetMixin, ListAPIView):
-    permission_classes = (IsValidUser,)
+class UserGrantedAssetsAsTreeApi(UserGrantedAssetsAsTreeForAdminApi):
+    permission_classes = (IsValidUser, )
+
+
+@method_decorator(tmp_to_root_org(), name='list')
+class UserGrantedNodeAssetsForAdminApi(UserGrantedNodeAssetMixin, ListAPIView):
+    permission_classes = (IsOrgAdminOrAppUser,)
     serializer_class = serializers.AssetGrantedSerializer
     only_fields = serializers.AssetGrantedSerializer.Meta.only_fields
     filter_fields = ['hostname', 'ip', 'id', 'comment']
     search_fields = ['hostname', 'ip', 'comment']
     pagination_class = GrantedAssetLimitOffsetPagination
 
+    def get_user(self):
+        return User.objects.get(id=self.kwargs.get('pk'))
+
     def get_queryset(self):
         node_id = self.kwargs.get("node_id")
-        user = self.request.user
+        user = self.get_user()
 
         mapping_node: UserGrantedMappingNode = get_object_or_none(
             UserGrantedMappingNode, user=user, node_id=node_id)
@@ -92,5 +101,10 @@ class UserGrantedNodeAssetsApi(UserGrantedNodeAssetMixin, ListAPIView):
 
     def on_ungranted_node(self, key, mapping_node: UserGrantedMappingNode, node: Node = None):
         self.node = mapping_node
-        user = self.request.user
+        user = self.get_user()
         return get_node_all_granted_assets(user, node.key)
+
+
+@method_decorator(tmp_to_root_org(), name='list')
+class MyGrantedNodeAssetsApi(UserGrantedNodeAssetsForAdminApi):
+    permission_classes = (IsValidUser,)

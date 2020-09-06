@@ -39,34 +39,6 @@ __all__ = [
 
 class MyGrantedNodesWithAssetsAsTreeApi(SerializeToTreeNodeMixin, ListAPIView):
 
-    def serialize_assets(self, assets: List[Asset]):
-        data = [
-            {
-                'id': str(asset.id),
-                'name': asset.hostname,
-                'title': asset.ip,
-                'pId': asset.parent_key,
-                'isParent': False,
-                'open': False,
-                'iconSkin': self.get_platform(asset),
-                'nocheck': not asset.has_protocol('ssh'),
-                'meta': {
-                    'type': 'asset',
-                    'asset': {
-                        'id': asset.id,
-                        'hostname': asset.hostname,
-                        'ip': asset.ip,
-                        'protocols': asset.protocols_as_list,
-                        'platform': asset.platform_base,
-                        'domain': asset.domain_id,
-                        'org_id': asset.org_id
-                    },
-                }
-            }
-            for asset in assets
-        ]
-        return data
-
     @tmp_to_root_org()
     def list(self, request: Request, *args, **kwargs):
         user = request.user

@@ -170,7 +170,7 @@ class NodeChildrenAsTreeApi(SerializeToTreeNodeMixin, NodeChildrenApi):
 
     def get_assets(self):
         include_assets = self.request.query_params.get('assets', '0') == '1'
-        if not include_assets or not self.instance.parent_key:
+        if not include_assets:
             return []
         assets = self.instance.get_assets().only(
             "id", "hostname", "ip", "os",

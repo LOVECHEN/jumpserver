@@ -44,13 +44,23 @@ class SerializeToTreeNodeMixin:
             return platform
         return default
 
-    def serialize_assets(self, assets, node_key):
+    def serialize_assets(self, assets, node_key=None, with_org_name=False):
+        if node_key is None:
+            get_pid = lambda asset: getattr(asset, 'parent_key', '')
+        else:
+            get_pid = lambda asset: node_key
+
+        if with_org_name:
+            get_org_name = lambda asset: asset.org_name
+        else:
+            get_org_name = lambda asset: None
+
         data = [
             {
                 'id': str(asset.id),
                 'name': asset.hostname,
                 'title': asset.ip,
-                'pId': node_key,
+                'pId': get_pid(asset),
                 'isParent': False,
                 'open': False,
                 'iconSkin': self.get_platform(asset),
@@ -64,7 +74,7 @@ class SerializeToTreeNodeMixin:
                         'protocols': asset.protocols_as_list,
                         'platform': asset.platform_base,
                         'domain': asset.domain_id,
-                        'org_name': asset.org_name,
+                        'org_name': get_org_name(asset),
                         'org_id': asset.org_id
                     },
                 }

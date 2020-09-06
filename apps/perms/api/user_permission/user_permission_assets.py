@@ -15,6 +15,7 @@ from ...hands import Node
 from ... import serializers
 from perms.models import UserGrantedMappingNode
 from perms.utils.user_node_tree import get_node_all_granted_assets
+from perms.pagination import GrantedAssetLimitOffsetPagination
 from assets.models import Asset
 from orgs.utils import tmp_to_root_org
 
@@ -71,6 +72,7 @@ class UserGrantedNodeAssetsApi(UserGrantedNodeAssetMixin, ListAPIView):
     only_fields = serializers.AssetGrantedSerializer.Meta.only_fields
     filter_fields = ['hostname', 'ip', 'id', 'comment']
     search_fields = ['hostname', 'ip', 'comment']
+    pagination_class = GrantedAssetLimitOffsetPagination
 
     def get_queryset(self):
         node_id = self.kwargs.get("node_id")
@@ -82,11 +84,13 @@ class UserGrantedNodeAssetsApi(UserGrantedNodeAssetMixin, ListAPIView):
         return self.dispatch_node_process(node.key, mapping_node, node)
 
     def on_granted_node(self, key, mapping_node: UserGrantedMappingNode, node: Node = None):
+        self.node = node
         return Asset.objects.filter(
             Q(nodes__key__startswith=f'{node.key}:') |
             Q(nodes__id=node.id)
         ).distinct()
 
     def on_ungranted_node(self, key, mapping_node: UserGrantedMappingNode, node: Node = None):
+        self.node = mapping_node
         user = self.request.user
-        return get_node_all_granted_assets(user, node.key, mapping_node.asset_granted)
+        return get_node_all_granted_assets(user, node.key)

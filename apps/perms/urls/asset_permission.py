@@ -19,29 +19,39 @@ user_permission_urlpatterns = [
     # `<uuid:pk>`: `User.pk`
     # 直接授权：在 `AssetPermission` 中关联的对象
 
+    # ---------------------------------------------------------
     # 获取用户所有直接授权的资产
+
+    # 以 serializer 格式返回
     path('<uuid:pk>/assets/', api.UserGrantedAssetsForAdminApi.as_view(), name='user-assets'),
     path('assets/', api.UserGrantedAssetsForUserApi.as_view(), name='my-assets'),
 
-    # 获取用户所有直接授权的资产，以 Tree Node 的数据格式返回
+    # Tree Node 的数据格式返回
     path('<uuid:pk>/assets/tree/', api.UserGrantedAssetsAsTreeApi.as_view(), name='user-assets-as-tree'),
     path('assets/tree/', api.UserGrantedAssetsAsTreeApi.as_view(), name='my-assets-as-tree'),
+    # ^--------------------------------------------------------^
 
-    # 获取用户所有**直接授权的节点** 与 **直接资产授权**关联的节点
+    # 获取用户所有`直接授权的节点`与`直接授权资产`关联的节点
+    # 以 serializer 格式返回
     path('<uuid:pk>/nodes/', api.UserGrantedNodesForAdminApi.as_view(), name='user-nodes'),
     path('nodes/', api.UserGrantedNodesForUserApi.as_view(), name='my-nodes'),
 
-    # 获取用户所有**直接授权的节点** 与 **直接资产授权**关联的节点，以 Tree Node 的数据格式返回
+    # 以 Tree Node 的数据格式返回
     path('<uuid:pk>/nodes/tree/', api.UserGrantedNodesAsTreeApi.as_view(), name='user-nodes-as-tree'),
     path('nodes/tree/', api.UserGrantedNodesAsTreeApi.as_view(), name='my-nodes-as-tree'),
+    # ^--------------------------------------------------------^
 
-    # 一层一层的获取用户授权的节点，需要给出父节点 key，以 Tree Node 的数据格式返回
+    # 一层一层的获取用户授权的节点，
+    # 以 Tree Node 的数据格式返回
     path('<uuid:pk>/nodes/children/', api.UserGrantedNodeChildrenApi.as_view(), name='user-nodes-children'),
     path('nodes/children/', api.UserGrantedNodeChildrenApi.as_view(), name='my-nodes-children'),
 
-    # 一层一层的获取用户授权的节点，需要给出父节点 key 或 pk
+    # 以 Tree Node 的数据格式返回
     path('<uuid:pk>/nodes/children/tree/', api.UserGrantedNodeChildrenAsTreeApi.as_view(), name='user-nodes-children-as-tree'),
-    path('nodes/children/tree/', non_atomic_requests(api.UserGrantedNodeChildrenApi.as_view()), name='my-nodes-children-as-tree'),
+    # 部分调用位置
+    # - 普通用户 -> 我的资产 -> 展开节点 时调用
+    path('nodes/children/tree/', api.UserGrantedNodeChildrenApi.as_view(), name='my-nodes-children-as-tree'),
+    # ^--------------------------------------------------------^
 
     # Node children with assets as tree
     path('<uuid:pk>/nodes/children-with-assets/tree/', api.UserGrantedNodeChildrenWithAssetsAsTreeApi.as_view(), name='user-nodes-children-with-assets-as-tree'),

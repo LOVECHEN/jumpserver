@@ -45,7 +45,7 @@ class UserGrantedNodeChildrenWithAssetsAsTreeApi(UserGrantedNodeAssetMixin, Seri
             parent_key=key,
             mapping_nodes__user=user,
         ).annotate(
-            _granted_asset_amount=F('mapping_nodes__asset_amount'),
+            _granted_asset_amount=F('mapping_nodes__assets_amount'),
             _granted=F('mapping_nodes__granted')
         ).distinct()
 
@@ -97,7 +97,7 @@ class UserGrantedNodeChildrenApi(UserGrantedNodeAssetMixin, SerializeToTreeNodeM
                 mapping_nodes__user=user,
                 parent_key=''
             ).annotate(
-                _granted_asset_amount=F('mapping_nodes__asset_amount'),
+                _granted_asset_amount=F('mapping_nodes__assets_amount'),
                 _granted=F('mapping_nodes__granted')
             ).distinct()
 
@@ -122,7 +122,7 @@ class UserGrantedNodeChildrenApi(UserGrantedNodeAssetMixin, SerializeToTreeNodeM
             parent_key=key,
             mapping_nodes__user=user,
         ).annotate(
-            _granted_asset_amount=F('mapping_nodes__asset_amount'),
+            _granted_asset_amount=F('mapping_nodes__assets_amount'),
             _granted=F('mapping_nodes__granted')
         ).distinct()
 

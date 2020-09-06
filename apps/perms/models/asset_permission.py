@@ -184,7 +184,7 @@ class UserGrantedMappingNode(FamilyMixin, models.JMSBaseModel):
     granted = models.BooleanField(default=False, db_index=True)
     asset_granted = models.BooleanField(default=False, db_index=True)
     parent_key = models.CharField(max_length=64, default='', verbose_name=_('Parent key'), db_index=True)  # '1:1:1:1'
-    asset_amount = models.IntegerField(default=0)
+    assets_amount = models.IntegerField(default=0)
 
 
 class RebuildUserTreeTask(models.JMSBaseModel):

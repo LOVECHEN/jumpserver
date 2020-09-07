@@ -108,3 +108,6 @@ class UserGrantedNodeAssetsForAdminApi(UserGrantedNodeAssetMixin, ListAPIView):
 @method_decorator(tmp_to_root_org(), name='list')
 class MyGrantedNodeAssetsApi(UserGrantedNodeAssetsForAdminApi):
     permission_classes = (IsValidUser,)
+
+    def get_user(self):
+        return self.request.user

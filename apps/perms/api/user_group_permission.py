@@ -27,11 +27,11 @@ class UserGroupGrantedNodesApi(UserGroupPermissionMixin, uapi.UserGrantedNodesFo
     pass
 
 
-class UserGroupGrantedNodeChildrenApi(UserGroupPermissionMixin, uapi.UserGrantedNodeChildrenApi):
+class UserGroupGrantedNodeChildrenApi(UserGroupPermissionMixin, uapi.UserGrantedNodeChildrenTreeForAdminApi):
     pass
 
 
-class UserGroupGrantedNodeChildrenAsTreeApi(UserGroupPermissionMixin, uapi.UserGrantedNodeChildrenAsTreeApi):
+class UserGroupGrantedNodeChildrenAsTreeApi(UserGroupPermissionMixin, uapi.UserGrantedNodeChildrenTreeForAdminApi):
     pass
 
 

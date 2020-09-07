@@ -33,6 +33,7 @@ def run_mapping_node_tasks():
         try:
             run_user_mapping_node_task(user)
         except:
+            logger.exception(f'[{ident}]mapping_node_tasks_exception')
             failed_user_ids.append(user.id)
 
     logger.debug(f'[{ident}]mapping_node_tasks finished')

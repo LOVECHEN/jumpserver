@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 #
-from typing import List
-
 from rest_framework.generics import ListAPIView
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -13,7 +11,6 @@ from common.permissions import IsValidUser, IsOrgAdminOrAppUser
 from common.utils.django import get_object_or_none
 from common.utils import get_logger
 from .user_permission_nodes import MyGrantedNodesAsTreeApi
-from .user_permission_nodes import UserGrantedNodeChildrenAsTreeApi
 from .mixin import UserGrantedNodeAssetMixin
 from perms.models import UserGrantedMappingNode
 from perms.utils.user_node_tree import (
@@ -31,11 +28,11 @@ logger = get_logger(__name__)
 
 __all__ = [
     'MyGrantedNodesAsTreeApi',
-    'UserGrantedNodeChildrenAsTreeApi',
     'UserGrantedNodeChildrenWithAssetsAsTreeForAdminApi',
-    'UserGrantedNodeChildrenApi',
+    'UserGrantedNodeChildrenTreeForAdminApi',
     'MyGrantedNodesWithAssetsAsTreeApi',
     'MyGrantedNodeChildrenWithAssetsAsTreeApi',
+    'MyGrantedNodeChildrenTreeApi',
 ]
 
 
@@ -57,12 +54,18 @@ class MyGrantedNodesWithAssetsAsTreeApi(SerializeToTreeNodeMixin, ListAPIView):
 
         for _node in nodes:
             if not is_granted(_node):
+                # 未授权的节点资产数量设置为 `UserGrantedMappingNode` 中的数量
                 _node.assets_amount = get_granted_asset_amount(_node)
             else:
                 # 直接授权的节点
+
+                # 增加查询该节点及其后代节点资产的过滤条件
                 granted_q |= Q(nodes__key__startswith=f'{_node.key}:')
                 granted_q |= Q(nodes__key=_node.key)
+
+                # 增加查询后代节点的过滤条件
                 descendant_q |= Q(key__startswith=f'{_node.key}:')
+
             key2nodes_mapper[_node.key] = _node
 
         if descendant_q:
@@ -148,12 +151,15 @@ class MyGrantedNodeChildrenWithAssetsAsTreeApi(UserGrantedNodeChildrenWithAssets
 
 
 @method_decorator(tmp_to_root_org(), name='list')
-class UserGrantedNodeChildrenApi(UserGrantedNodeAssetMixin, SerializeToTreeNodeMixin, ListAPIView):
-    permission_classes = (IsValidUser, )
+class UserGrantedNodeChildrenTreeForAdminApi(UserGrantedNodeAssetMixin, SerializeToTreeNodeMixin, ListAPIView):
+    permission_classes = (IsOrgAdminOrAppUser, )
+
+    def get_user(self):
+        user_id = self.kwargs.get('pk')
+        return User.objects.get(id=user_id)
 
     def list(self, request: Request, *args, **kwargs):
-
-        user = request.user
+        user = self.get_user()
         key = request.query_params.get('key')
 
         self.submit_update_mapping_node_task(user)
@@ -198,3 +204,11 @@ class UserGrantedNodeChildrenApi(UserGrantedNodeAssetMixin, SerializeToTreeNodeM
                 _node.assets_amount = getattr(_node, TMP_GRANTED_ASSET_AMOUNT, 0)
 
         return nodes
+
+
+@method_decorator(tmp_to_root_org(), name='list')
+class MyGrantedNodeChildrenTreeApi(UserGrantedNodeChildrenTreeForAdminApi):
+    permission_classes = (IsValidUser, )
+
+    def get_user(self):
+        return self.request.user

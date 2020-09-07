@@ -170,7 +170,7 @@ def create_mapping_nodes(user, nodes, clear=True):
             parent_key=node.parent_key,
             granted=_granted,
             asset_granted=_asset_granted,
-            asset_amount=_granted_asset_amount,
+            assets_amount=_granted_asset_amount,
         ))
 
     if clear:

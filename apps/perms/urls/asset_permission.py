@@ -47,10 +47,10 @@ user_permission_urlpatterns = [
     path('nodes/children/', api.MyGrantedNodeChildrenApi.as_view(), name='my-nodes-children'),
 
     # 以 Tree Node 的数据格式返回
-    path('<uuid:pk>/nodes/children/tree/', api.UserGrantedNodeChildrenTreeForAdminApi.as_view(), name='user-nodes-children-as-tree'),
+    path('<uuid:pk>/nodes/children/tree/', api.UserGrantedNodeChildrenAsTreeForAdminApi.as_view(), name='user-nodes-children-as-tree'),
     # 部分调用位置
     # - 普通用户 -> 我的资产 -> 展开节点 时调用
-    path('nodes/children/tree/', api.MyGrantedNodeChildrenTreeApi.as_view(), name='my-nodes-children-as-tree'),
+    path('nodes/children/tree/', api.MyGrantedNodeChildrenAsTreeApi.as_view(), name='my-nodes-children-as-tree'),
     # ^--------------------------------------------------------^
 
     # 此接口会返回整棵树

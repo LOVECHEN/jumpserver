@@ -35,6 +35,8 @@ __all__ = [
     'UserGrantedNodeChildrenApi',
     'UserGrantedNodeChildrenForAdminApi',
     'MyGrantedNodeChildrenApi',
+    'UserGrantedNodeChildrenAsTreeForAdminApi',
+    'MyGrantedNodeChildrenAsTreeApi',
 ]
 
 
@@ -179,7 +181,7 @@ class ForAdminMixin:
 
 class ForUserMixin:
     for_admin = False
-    permission_classes = (IsOrgAdminOrAppUser,)
+    permission_classes = (IsValidUser,)
 
 
 class UserGrantedNodeChildrenForAdminApi(ForAdminMixin, UserGrantedNodeChildrenApi):

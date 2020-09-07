@@ -11,10 +11,6 @@ from ...hands import Node
 
 class UserGrantedNodeAssetMixin:
 
-    def list(self, request, *args, **kwargs):
-        self.submit_update_mapping_node_task(user=self.request.user)
-        return super().list(request, *args, **kwargs)
-
     def submit_update_mapping_node_task(self, user):
         submit_update_mapping_node_task_for_user(user)
 

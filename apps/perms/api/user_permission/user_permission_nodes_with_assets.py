@@ -189,7 +189,7 @@ class UserGrantedNodeChildrenTreeForAdminApi(UserGrantedNodeAssetMixin, Serializ
         return Node.objects.filter(parent_key=key)
 
     def on_ungranted_node(self, key, mapping_node: UserGrantedMappingNode, node: Node = None):
-        user = self.request.user
+        user = self.get_user()
         nodes = Node.objects.filter(
             parent_key=key,
             mapping_nodes__user=user,

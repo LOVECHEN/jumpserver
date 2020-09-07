@@ -96,10 +96,15 @@ class MyGrantedNodesAsTreeApi(SerializeToTreeNodeMixin, UserGrantedNodesForAdmin
 
 
 class UserGrantedNodeChildrenBaseApi(UserGrantedNodeAssetMixin, ListAPIView):
+    for_admin = False
 
     @lazyproperty
     def user(self):
-        return self.request.user
+        if self.for_admin:
+            user_id = self.kwargs.get('pk')
+            return User.objects.get(id=user_id)
+        else:
+            return self.request.user
 
     def get_nodes(self):
         user = self.user
@@ -150,6 +155,9 @@ class UserGrantedNodeChildrenBaseApi(UserGrantedNodeAssetMixin, ListAPIView):
 
 
 class UserGrantedNodeChildrenApi(UserGrantedNodeChildrenBaseApi):
+    serializer_class = serializers.NodeGrantedSerializer
+
+    @tmp_to_root_org()
     def list(self, request, *args, **kwargs):
         nodes = self.get_nodes()
         serializer = self.get_serializer(nodes, many=True)
@@ -157,21 +165,34 @@ class UserGrantedNodeChildrenApi(UserGrantedNodeChildrenBaseApi):
 
 
 class UserGrantedNodeChildrenAsTreeApi(SerializeToTreeNodeMixin, UserGrantedNodeChildrenBaseApi):
+    @tmp_to_root_org()
     def list(self, request, *args, **kwargs):
         nodes = self.get_nodes()
         nodes = self.serialize_nodes(nodes, with_asset_amount=True)
         return Response(data=nodes)
 
 
-@method_decorator(tmp_to_root_org(), name='list')
-class UserGrantedNodeChildrenForAdminApi(UserGrantedNodeChildrenApi):
+class ForAdminMixin:
+    for_admin = True
     permission_classes = (IsOrgAdminOrAppUser,)
-    serializer_class = serializers.NodeGrantedSerializer
 
 
-@method_decorator(tmp_to_root_org(), name='list')
-class MyGrantedNodeChildrenApi(UserGrantedNodeChildrenApi):
+class ForUserMixin:
+    for_admin = False
     permission_classes = (IsOrgAdminOrAppUser,)
-    serializer_class = serializers.NodeGrantedSerializer
 
 
+class UserGrantedNodeChildrenForAdminApi(ForAdminMixin, UserGrantedNodeChildrenApi):
+    pass
+
+
+class MyGrantedNodeChildrenApi(ForUserMixin, UserGrantedNodeChildrenApi):
+    pass
+
+
+class UserGrantedNodeChildrenAsTreeForAdminApi(ForAdminMixin, UserGrantedNodeChildrenAsTreeApi):
+    pass
+
+
+class MyGrantedNodeChildrenAsTreeApi(ForUserMixin, UserGrantedNodeChildrenAsTreeApi):
+    pass
